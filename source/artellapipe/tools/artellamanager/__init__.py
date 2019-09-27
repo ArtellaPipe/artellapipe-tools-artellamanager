@@ -13,6 +13,8 @@ sentry_sdk.init("https://040ed0435de64013afb25a47d04e3cf1@sentry.io/1763161")
 
 from tpPyUtils import importer
 
+from artellapipe.utils import resource, exceptions
+
 
 class ArtellaManager(importer.Importer, object):
     def __init__(self):
@@ -52,12 +54,32 @@ def init(do_reload=False):
     ]
 
     artellamanager_importer = importer.init_importer(importer_class=ArtellaManager, do_reload=False)
-    artellamanager_importer.import_modules()
-    artellamanager_importer.import_packages(order=packages_order, only_packages=True)
+    artellamanager_importer.import_packages(order=packages_order, only_packages=False)
     if do_reload:
         artellamanager_importer.reload_all()
 
     create_logger_directory()
+
+    resources_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'resources')
+    resource.ResourceManager.instance().register_resource(resources_path)
+
+
+@exceptions.sentry_exception
+def run(project, mode=None, do_reload=False):
+    """
+    Run ArtellaManager Tool
+    :param project: ArtellaProject
+    :param mode: ArtellaSyncerMode
+    :param do_reload: bool
+    :return: ArtellaManager
+    """
+
+    init(do_reload=do_reload)
+    from artellapipe.tools.artellamanager import artellamanagerwindow
+    if not mode:
+        mode = artellamanagerwindow.ArtellaSyncerMode.ALL
+    win = artellamanagerwindow.run(project=project, mode=mode)
+    return win
 
 
 def create_logger_directory():

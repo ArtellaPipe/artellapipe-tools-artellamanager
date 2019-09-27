@@ -23,6 +23,7 @@ from Qt.QtWidgets import *
 from tpQtLib.core import base
 
 import artellapipe.tools.artellamanager
+from artellapipe.utils import resource
 from artellapipe.core import defines, artellalib
 from artellapipe.gui import progressbar
 
@@ -66,7 +67,7 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         self._sync_subfolders_cbx.setChecked(True)
         self._sync_subfolders_cbx.setMaximumWidth(110)
         self._sync_btn = QPushButton('Sync')
-        self._sync_btn.setIcon(artellapipe.resource.icon('sync'))
+        self._sync_btn.setIcon(resource.ResourceManager.instance().icon('sync'))
         buttons_layout.addWidget(self._sync_subfolders_cbx)
         buttons_layout.addWidget(self._sync_btn)
 

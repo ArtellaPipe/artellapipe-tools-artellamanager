@@ -39,10 +39,10 @@ class ArtellaSyncerMode(object):
     URL = 'url'
 
 
-class ArtellaManager(window.ArtellaWindow, object):
+class ArtellaManagerWindow(window.ArtellaWindow, object):
 
     VERSION = '0.0.1'
-    LOGO_NAME = 'manager_logo'
+    LOGO_NAME = 'artelllamanager_logo'
 
     LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
     SERVER_MANAGER = servermanager.ArtellaServerManagerwidget
@@ -56,9 +56,9 @@ class ArtellaManager(window.ArtellaWindow, object):
         self._server_widget = None
         self._url_widget = None
 
-        super(ArtellaManager, self).__init__(
+        super(ArtellaManagerWindow, self).__init__(
             project=project,
-            name='SyncerWindow',
+            name='ArtellaManagerWindow',
             title='Artella Manager',
             size=(800, 1100)
         )
@@ -72,7 +72,7 @@ class ArtellaManager(window.ArtellaWindow, object):
         return main_layout
 
     def ui(self):
-        super(ArtellaManager, self).ui()
+        super(ArtellaManagerWindow, self).ui()
 
         self._tab = QTabWidget()
         self.main_layout.addWidget(self._tab)
@@ -163,7 +163,7 @@ class ArtellaManager(window.ArtellaWindow, object):
 
 
 def run(project, mode=ArtellaSyncerMode.ALL):
-    win = ArtellaManager(project=project, mode=mode)
+    win = ArtellaManagerWindow(project=project, mode=mode)
     win.show()
 
     return win
