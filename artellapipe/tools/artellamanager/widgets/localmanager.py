@@ -32,14 +32,11 @@ import tpDccLib as tp
 from tpQtLib.core import base
 from tpQtLib.widgets import search, stack
 
-import artellapipe.tools.artellamanager
 from artellapipe.core import artellalib
 from artellapipe.gui import progressbar
 from artellapipe.utils import resource
 
-logging.config.fileConfig(artellapipe.tools.artellamanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.artellamanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaLocalTreeModel(QFileSystemModel, object):
@@ -162,12 +159,12 @@ class ArtellaLocalTreeView(QTreeView, object):
 
         contextual_menu = QMenu(self)
 
-        artella_icon = resource.ResourceManager.instance().icon('artella')
+        artella_icon = resource.ResourceManager().icon('artella')
         artella_action = QAction(artella_icon, 'Open in Artella', contextual_menu)
         artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
         contextual_menu.addAction(artella_action)
 
-        eye_icon = resource.ResourceManager.instance().icon('eye')
+        eye_icon = resource.ResourceManager().icon('eye')
         view_locally_action = QAction(eye_icon, 'View Locally', contextual_menu)
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
         contextual_menu.addAction(view_locally_action)
@@ -180,7 +177,7 @@ class ArtellaLocalTreeView(QTreeView, object):
             file_versions = history.versions
             if file_versions:
                 if is_locked:
-                    unlock_icon = resource.ResourceManager.instance().icon('unlock')
+                    unlock_icon = resource.ResourceManager().icon('unlock')
                     unlock_action = QAction(unlock_icon, 'Unlock File', contextual_menu)
                     unlock_action.triggered.connect(partial(self._on_unlock_item, item_path))
                     contextual_menu.addAction(unlock_action)
@@ -188,13 +185,13 @@ class ArtellaLocalTreeView(QTreeView, object):
                         unlock_action.setEnabled(False)
                         unlock_action.setText('Locked by other user')
                 else:
-                    lock_icon = resource.ResourceManager.instance().icon('lock')
+                    lock_icon = resource.ResourceManager().icon('lock')
                     lock_action = QAction(lock_icon, 'Lock File', contextual_menu)
                     lock_action.triggered.connect(partial(self._on_lock_item, item_path))
                     contextual_menu.addAction(lock_action)
 
             if file_versions:
-                upload_icon = resource.ResourceManager.instance().icon('upload')
+                upload_icon = resource.ResourceManager().icon('upload')
                 new_version_action = QAction(upload_icon, 'Make New Version', contextual_menu)
                 new_version_action.triggered.connect(partial(self._on_make_new_version, item_path))
                 if not is_locked:
@@ -202,7 +199,7 @@ class ArtellaLocalTreeView(QTreeView, object):
                     new_version_action.setEnabled(False)
                 contextual_menu.addAction(new_version_action)
             else:
-                add_icon = resource.ResourceManager.instance().icon('add')
+                add_icon = resource.ResourceManager().icon('add')
                 add_file_action = QAction(add_icon, 'Local Only | Add File', contextual_menu)
                 add_file_action.triggered.connect(partial(self._on_make_new_version, item_path))
                 contextual_menu.addAction(add_file_action)
@@ -439,10 +436,10 @@ class ArtellaSyncItemStatus(object):
 
 class ArtellaSyncItem(QTreeWidgetItem, object):
 
-    WAIT_PIXMAP = resource.ResourceManager.instance().pixmap('clock', category='icons', theme='color', extension='png')
-    RUN_PIXMAP = resource.ResourceManager.instance().pixmap('clock_start', category='icons', theme='color', extension='png')
-    OK_PIXMAP = resource.ResourceManager.instance().pixmap('ok', category='icons', theme='color', extension='png')
-    ERROR_PIXMAP = resource.ResourceManager.instance().pixmap('error', category='icons', theme='color', extension='png')
+    WAIT_PIXMAP = resource.ResourceManager().pixmap('clock', category='icons', theme='color', extension='png')
+    RUN_PIXMAP = resource.ResourceManager().pixmap('clock_start', category='icons', theme='color', extension='png')
+    OK_PIXMAP = resource.ResourceManager().pixmap('ok', category='icons', theme='color', extension='png')
+    ERROR_PIXMAP = resource.ResourceManager().pixmap('error', category='icons', theme='color', extension='png')
 
     def __init__(self, name, path, icon, color=None, parent=None):
         super(ArtellaSyncItem, self).__init__()
@@ -663,7 +660,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         no_items_layout.setSpacing(0)
         no_items_widget.setLayout(no_items_layout)
         no_items_lbl = QLabel()
-        no_items_pixmap = resource.ResourceManager.instance().pixmap('sync_no_items')
+        no_items_pixmap = resource.ResourceManager().pixmap('sync_no_items')
         no_items_lbl.setPixmap(no_items_pixmap)
         no_items_lbl.setAlignment(Qt.AlignCenter)
         no_items_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))
@@ -693,7 +690,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         self._sync_subfolders_cbx.setChecked(True)
         self._sync_subfolders_cbx.setMaximumWidth(110)
         self._sync_btn = QPushButton('Sync')
-        self._sync_btn.setIcon(resource.ResourceManager.instance().icon('sync'))
+        self._sync_btn.setIcon(resource.ResourceManager().icon('sync'))
         buttons_layout.addWidget(self._sync_subfolders_cbx)
         buttons_layout.addWidget(self._sync_btn)
         list_layout.addLayout(buttons_layout)
@@ -719,7 +716,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         Internal function that setup menu bar
         """
 
-        refresh_icon = resource.ResourceManager.instance().icon('refresh')
+        refresh_icon = resource.ResourceManager().icon('refresh')
 
         refresh_btn = QToolButton()
         refresh_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -776,8 +773,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         except Exception as e:
             self.repaint()
             msg = 'Error while locking item "{}"'.format(item_path)
-            logger.error(msg)
-            logger.error('{} | {}'.format(e, traceback.format_exc()))
+            LOGGER.error(msg)
+            LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
             capture_exception(e)
             self._progress.set_value(0)
             self._progress.set_text('')
@@ -811,8 +808,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         except Exception as e:
             self.repaint()
             msg = 'Error while unlocking item "{}"'.format(item_path)
-            logger.error(msg)
-            logger.error('{} | {}'.format(e, traceback.format_exc()))
+            LOGGER.error(msg)
+            LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
             capture_exception(e)
             self._progress.set_value(0)
             self._progress.set_text('')
@@ -849,8 +846,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         except Exception as e:
             self.repaint()
             msg = 'Error while creating new file version for "{}"'.format(item_path)
-            logger.error(msg)
-            logger.error('{} | {}'.format(e, traceback.format_exc()))
+            LOGGER.error(msg)
+            LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
             capture_exception(e)
             self._progress.set_value(0)
             self._progress.set_text('')
@@ -868,7 +865,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         items_to_sync = self._list.get_items(skip_hidden=True)
         if not items_to_sync:
             msg = 'Select files and folers to sync before syncing!'
-            artellapipe.logger.warning(msg)
+            LOGGER.warning(msg)
             self.syncWarning.emit(msg)
             return
 
@@ -910,8 +907,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
                     msg = 'Error while syncing file: {}'.format(item_name)
                 else:
                     msg = 'Error while syncing folder: {}'.format(item_name)
-                logger.error(msg)
-                logger.error('{} | {}'.format(e, traceback.format_exc()))
+                LOGGER.error(msg)
+                LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
                 capture_exception(e)
                 self._progress.set_value(0)
                 self._progress.set_text('')

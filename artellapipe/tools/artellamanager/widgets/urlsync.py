@@ -22,14 +22,11 @@ from Qt.QtWidgets import *
 
 from tpQtLib.core import base
 
-import artellapipe.tools.artellamanager
 from artellapipe.utils import resource
 from artellapipe.core import defines, artellalib
 from artellapipe.gui import progressbar
 
-logging.config.fileConfig(artellapipe.tools.artellamanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.artellamanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaURLSyncWidget(base.BaseWidget, object):
@@ -67,7 +64,7 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         self._sync_subfolders_cbx.setChecked(True)
         self._sync_subfolders_cbx.setMaximumWidth(110)
         self._sync_btn = QPushButton('Sync')
-        self._sync_btn.setIcon(resource.ResourceManager.instance().icon('sync'))
+        self._sync_btn.setIcon(resource.ResourceManager().icon('sync'))
         buttons_layout.addWidget(self._sync_subfolders_cbx)
         buttons_layout.addWidget(self._sync_btn)
 
@@ -111,8 +108,8 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         except Exception as e:
             self.repaint()
             msg = 'Error while syncing URL: {}'.format(base_url)
-            logger.error(msg)
-            logger.error('{} | {}'.format(e, traceback.format_exc()))
+            LOGGER.error(msg)
+            LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
             capture_exception(e)
             self._progress.set_value(0)
             self._progress.set_text('')

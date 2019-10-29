@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Tool that allow artists to easily sync files from Artella server
+Tool that allow artists to work with Artella local and server files
 """
 
 from __future__ import print_function, division, absolute_import
@@ -12,7 +12,7 @@ __license__ = "MIT"
 __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
-import logging.config
+import logging
 
 from Qt.QtCore import *
 from Qt.QtWidgets import *
@@ -22,14 +22,10 @@ from sentry_sdk import capture_message
 from tpPyUtils import python
 from tpQtLib.widgets import lightbox
 
-from artellapipe.gui import window
+from artellapipe.core import tool
+from artellapipe.tools.artellamanager.widgets import localmanager, newassetdialog, servermanager, urlsync
 
-import artellapipe.tools.artellamanager
-from artellapipe.tools.artellamanager import localmanager, newassetdialog, servermanager, urlsync
-
-logging.config.fileConfig(artellapipe.tools.artellamanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.artellamanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaSyncerMode(object):
@@ -39,29 +35,21 @@ class ArtellaSyncerMode(object):
     URL = 'url'
 
 
-class ArtellaManagerWindow(window.ArtellaWindow, object):
-
-    VERSION = '0.0.1'
-    LOGO_NAME = 'artelllamanager_logo'
+class ArtellaManager(tool.Tool, object):
 
     LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
     SERVER_MANAGER = servermanager.ArtellaServerManagerwidget
     URL_SYNC = urlsync.ArtellaURLSyncWidget
     NEW_ASSET_DIALOG = newassetdialog.ArtellaNewAssetDialog
 
-    def __init__(self, project, mode=ArtellaSyncerMode.ALL):
+    def __init__(self, project, config, mode=ArtellaSyncerMode.ALL):
 
         self._mode = python.force_list(mode)
         self._local_widget = None
         self._server_widget = None
         self._url_widget = None
 
-        super(ArtellaManagerWindow, self).__init__(
-            project=project,
-            name='ArtellaManagerWindow',
-            title='Artella Manager',
-            size=(800, 1100)
-        )
+        super(ArtellaManager, self).__init__(project=project, config=config)
 
     def get_main_layout(self):
         main_layout = QVBoxLayout()
@@ -72,7 +60,7 @@ class ArtellaManagerWindow(window.ArtellaWindow, object):
         return main_layout
 
     def ui(self):
-        super(ArtellaManagerWindow, self).ui()
+        super(ArtellaManager, self).ui()
 
         self._tab = QTabWidget()
         self.main_layout.addWidget(self._tab)
@@ -132,7 +120,7 @@ class ArtellaManagerWindow(window.ArtellaWindow, object):
 
     def _on_server_worker_failed(self, error_msg, trace):
         self.show_error_message(error_msg)
-        logger.error('{} | {}'.format(error_msg, trace))
+        LOGGER.error('{} | {}'.format(error_msg, trace))
         capture_message('{} | {}'.format(error_msg, trace))
         self.close()
 
@@ -160,10 +148,3 @@ class ArtellaManagerWindow(window.ArtellaWindow, object):
         self._lightbox.set_widget(new_asset_dlg)
         self._lightbox.show()
         new_asset_dlg.show()
-
-
-def run(project, mode=ArtellaSyncerMode.ALL):
-    win = ArtellaManagerWindow(project=project, mode=mode)
-    win.show()
-
-    return win

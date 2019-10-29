@@ -2,4 +2,4 @@
 # artellapipe-tools-artellamanager requirements file
 # ===================================================================
 
-artellapipe-core
+artellapipe

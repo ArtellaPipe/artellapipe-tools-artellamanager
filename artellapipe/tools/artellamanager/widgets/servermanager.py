@@ -30,14 +30,11 @@ import tpDccLib as tp
 from tpQtLib.core import base
 from tpQtLib.widgets import stack, breadcrumb, treewidgets
 
-import artellapipe.tools.artellamanager
 from artellapipe.utils import resource, worker
 from artellapipe.core import defines, artellalib, artellaclasses
 from artellapipe.gui import waiter, progressbar
 
-logging.config.fileConfig(artellapipe.tools.artellamanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.artellamanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaSyncWaiter(waiter.ArtellaWaiter, object):
@@ -83,11 +80,11 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         self._breadcrumb = breadcrumb.BreadcrumbFrame()
         self._queue_widget = ArtellaSyncQueueWidget(project=self._project)
 
-        back_icon = resource.ResourceManager.instance().icon('back')
+        back_icon = resource.ResourceManager().icon('back')
         self._back_btn = QPushButton()
         self._back_btn.setIcon(back_icon)
 
-        next_icon = resource.ResourceManager.instance().icon('forward')
+        next_icon = resource.ResourceManager().icon('forward')
         self._next_btn = QPushButton()
         self._next_btn.setIcon(next_icon)
 
@@ -170,9 +167,9 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         Internal function that setup menu bar
         """
 
-        refresh_icon = resource.ResourceManager.instance().icon('refresh')
-        queue_icon = resource.ResourceManager.instance().icon('queue')
-        delete_icon = resource.ResourceManager.instance().icon('delete')
+        refresh_icon = resource.ResourceManager().icon('refresh')
+        queue_icon = resource.ResourceManager().icon('queue')
+        delete_icon = resource.ResourceManager().icon('delete')
 
         refresh_btn = QToolButton()
         refresh_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -363,7 +360,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         :param trace: str
         """
 
-        logger.error(msg)
+        LOGGER.error(msg)
         capture_message(msg)
 
         self.workerFailed.emit(msg, trace)
@@ -639,9 +636,9 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
 
         context_menu = QMenu(self)
 
-        refresh_icon = resource.ResourceManager.instance().icon('refresh')
-        queue_icon = resource.ResourceManager.instance().icon('queue')
-        delete_icon = resource.ResourceManager.instance().icon('delete')
+        refresh_icon = resource.ResourceManager().icon('refresh')
+        queue_icon = resource.ResourceManager().icon('queue')
+        delete_icon = resource.ResourceManager().icon('delete')
 
         refresh_action = QAction(refresh_icon, 'Refresh', context_menu, statusTip='Refresh Tree Data')
         add_all_items_action = QAction(queue_icon, 'Add all Items to Sync Queue', context_menu, statusTip='Add all items into Sync queue')
@@ -667,13 +664,13 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         if not item:
             return context_menu
 
-        artella_icon = resource.ResourceManager.instance().icon('artella')
-        queue_icon = resource.ResourceManager.instance().icon('queue')
-        teapot_icon = resource.ResourceManager.instance().icon('teapot')
-        eye_icon = resource.ResourceManager.instance().icon('eye')
-        open_icon = resource.ResourceManager.instance().icon('open')
-        import_icon = resource.ResourceManager.instance().icon('import')
-        reference_icon = resource.ResourceManager.instance().icon('reference')
+        artella_icon = resource.ResourceManager().icon('artella')
+        queue_icon = resource.ResourceManager().icon('queue')
+        teapot_icon = resource.ResourceManager().icon('teapot')
+        eye_icon = resource.ResourceManager().icon('eye')
+        open_icon = resource.ResourceManager().icon('open')
+        import_icon = resource.ResourceManager().icon('import')
+        reference_icon = resource.ResourceManager().icon('reference')
 
         open_in_artella_action = QAction(artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
         add_to_sync_queue_action = QAction(queue_icon, 'Add to Sync Queue', context_menu, statusTip='Add item to Artella Syncer queue')
@@ -690,7 +687,7 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         dcc_name = tp.Dcc.get_name()
         if dcc_name != tp.Dccs.Unknown and item.is_file():
             dcc_version = tp.Dcc.get_version_name()
-            dcc_icon = resource.ResourceManager.instance().icon(dcc_name)
+            dcc_icon = resource.ResourceManager().icon(dcc_name)
             dcc_menu = QMenu(context_menu)
             dcc_menu.setTitle('{} {}'.format(dcc_name.title(), dcc_version))
             dcc_menu.setIcon(dcc_icon)
@@ -813,9 +810,9 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
 
 class ArtellaSyncItem(QTreeWidgetItem, object):
 
-    ICON_UNKNOWN = resource.ResourceManager.instance().icon('question')
-    ICON_FOLDER = resource.ResourceManager.instance().icon('folder')
-    ICON_ASSET = resource.ResourceManager.instance().icon('teapot')
+    ICON_UNKNOWN = resource.ResourceManager().icon('question')
+    ICON_FOLDER = resource.ResourceManager().icon('folder')
+    ICON_ASSET = resource.ResourceManager().icon('teapot')
 
     def __init__(self, project, name, path, artella_data, is_file=False, file_icon=None, parent=None):
         super(ArtellaSyncItem, self).__init__(parent)
@@ -997,7 +994,7 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.open_file(file_path=item_path)
             return True
         else:
-            logger.warning('Impossible to open file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning('Impossible to open file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1014,7 +1011,7 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.import_file(file_path=item_path)
             return True
         else:
-            logger.warning('Impossible to import file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning('Impossible to import file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1031,7 +1028,7 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.reference_file(file_path=item_path)
             return True
         else:
-            logger.warning('Impossible to reference file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning('Impossible to reference file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1052,10 +1049,10 @@ class ArtellaSyncQueueItemStatus(object):
 
 class ArtellaSyncQueueItem(QTreeWidgetItem, object):
 
-    WAIT_ICON = resource.ResourceManager.instance().icon('clock')
-    RUN_ICON = resource.ResourceManager.instance().icon('clock_start')
-    OK_ICON = resource.ResourceManager.instance().icon('ok')
-    ERROR_ICON = resource.ResourceManager.instance().icon('error')
+    WAIT_ICON = resource.ResourceManager().icon('clock')
+    RUN_ICON = resource.ResourceManager().icon('clock_start')
+    OK_ICON = resource.ResourceManager().icon('ok')
+    ERROR_ICON = resource.ResourceManager().icon('error')
 
     def __init__(self, project, name, path, icon, is_file, is_asset, parent=None):
         super(ArtellaSyncQueueItem, self).__init__(parent)
@@ -1259,8 +1256,8 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
 
         context_menu = QMenu(self)
 
-        artella_icon = resource.ResourceManager.instance().icon('artella')
-        delete_icon = resource.ResourceManager.instance().icon('delete')
+        artella_icon = resource.ResourceManager().icon('artella')
+        delete_icon = resource.ResourceManager().icon('delete')
 
         open_in_artella_action = QAction(artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
         delete_action = QAction(delete_icon, 'Remove from Sync Queue', context_menu, statusTip='Remove item from Sync Queue')
@@ -1281,7 +1278,7 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
 
         context_menu = QMenu(self)
 
-        delete_icon = resource.ResourceManager.instance().icon('delete')
+        delete_icon = resource.ResourceManager().icon('delete')
 
         remove_queue_action = QAction(delete_icon, 'Clear Sync Queue', context_menu, statusTip='Remove All Items from Sync Queue')
 
@@ -1368,7 +1365,7 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
         no_items_layout.setSpacing(0)
         no_items_widget.setLayout(no_items_layout)
         no_items_lbl = QLabel()
-        no_items_pixmap = resource.ResourceManager.instance().pixmap('sync_no_items')
+        no_items_pixmap = resource.ResourceManager().pixmap('sync_no_items')
         no_items_lbl.setPixmap(no_items_pixmap)
         no_items_lbl.setAlignment(Qt.AlignCenter)
         no_items_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))
@@ -1454,7 +1451,7 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
         items_to_sync = self._queue_list.get_items()
         if not items_to_sync:
             msg = 'Select files and folers to sync before syncing!'
-            logger.warning(msg)
+            LOGGER.warning(msg)
             self.syncWarning.emit(msg)
             return
 
@@ -1501,8 +1498,8 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
                     msg = 'Error while syncing file: {}'.format(item_name)
                 else:
                     msg = 'Error while syncing folder: {}'.format(item_name)
-                logger.error(msg)
-                logger.error('{} | {}'.format(e, traceback.format_exc()))
+                LOGGER.error(msg)
+                LOGGER.error('{} | {}'.format(e, traceback.format_exc()))
                 capture_exception(e)
                 self._progress.set_value(0)
                 self._progress.set_text('')

@@ -22,13 +22,10 @@ from Qt.QtWidgets import *
 from tpQtLib.core import qtutils
 from tpQtLib.widgets import splitters, stack
 
-import artellapipe.tools.artellamanager
 from artellapipe.gui import dialog, waiter, spinner
 from artellapipe.utils import worker
 
-logging.config.fileConfig(artellapipe.tools.artellamanager.get_logging_config(), disable_existing_loggers=False)
-logger = logging.getLogger(__name__)
-logger.setLevel(artellapipe.tools.artellamanager.get_logging_level())
+LOGGER = logging.getLogger()
 
 
 class ArtellaNewAssetDialog(dialog.ArtellaDialog, object):
@@ -182,7 +179,7 @@ class ArtellaNewAssetDialog(dialog.ArtellaDialog, object):
         """
 
         error_msg = '{} | {} | {}'.format(uid, msg, trace)
-        logger.error(error_msg)
+        LOGGER.error(error_msg)
         capture_message(error_msg)
 
         try:
