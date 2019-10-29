@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.servermanager module
+=============================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.servermanager
+   :members:
+   :undoc-members:
+   :show-inheritance:

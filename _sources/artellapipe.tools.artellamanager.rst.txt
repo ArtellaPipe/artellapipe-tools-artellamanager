@@ -1,0 +1,18 @@
+artellapipe.tools.artellamanager package
+========================================
+
+Subpackages
+-----------
+
+.. toctree::
+
+   artellapipe.tools.artellamanager.core
+   artellapipe.tools.artellamanager.widgets
+
+Module contents
+---------------
+
+.. automodule:: artellapipe.tools.artellamanager
+   :members:
+   :undoc-members:
+   :show-inheritance:

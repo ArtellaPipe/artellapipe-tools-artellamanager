@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.newassetdialog module
+==============================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.newassetdialog
+   :members:
+   :undoc-members:
+   :show-inheritance:

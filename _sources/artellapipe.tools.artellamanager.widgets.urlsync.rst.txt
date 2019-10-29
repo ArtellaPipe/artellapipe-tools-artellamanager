@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.urlsync module
+=======================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.urlsync
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -1,0 +1,20 @@
+artellapipe.tools.artellamanager.widgets package
+================================================
+
+Submodules
+----------
+
+.. toctree::
+
+   artellapipe.tools.artellamanager.widgets.localmanager
+   artellapipe.tools.artellamanager.widgets.newassetdialog
+   artellapipe.tools.artellamanager.widgets.servermanager
+   artellapipe.tools.artellamanager.widgets.urlsync
+
+Module contents
+---------------
+
+.. automodule:: artellapipe.tools.artellamanager.widgets
+   :members:
+   :undoc-members:
+   :show-inheritance:
