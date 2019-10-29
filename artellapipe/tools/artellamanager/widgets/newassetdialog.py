@@ -139,7 +139,8 @@ class ArtellaNewAssetDialog(dialog.ArtellaDialog, object):
 
         # self._project.create_asset(asset_name, self._asset_path)
         folders_to_create = self.get_asset_folders()
-        valid_create = self._project.create_asset_in_artella(asset_name, self._asset_path, folders_to_create=folders_to_create)
+        valid_create = self._project.create_asset_in_artella(
+            asset_name, self._asset_path, folders_to_create=folders_to_create)
 
         return valid_create
 

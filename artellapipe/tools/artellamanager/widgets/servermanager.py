@@ -71,7 +71,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
 
         self._toolbar = QToolBar()
         self.main_layout.addWidget(self._toolbar)
-        
+
         splitter = QSplitter(Qt.Horizontal)
         splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -120,7 +120,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         self._reset_title()
 
         self._init()
-        
+
         self._setup_toolbar()
 
     def setup_signals(self):
@@ -549,7 +549,8 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         if include_disabled_items:
             return [self.topLevelItem(i) for i in range(self.topLevelItemCount())]
         else:
-            return [self.topLevelItem(i) for i in range(self.topLevelItemCount()) if not self.topLevelItem(i).is_disabled()]
+            return [
+                self.topLevelItem(i) for i in range(self.topLevelItemCount()) if not self.topLevelItem(i).is_disabled()]
 
     def refresh(self):
         """
@@ -641,8 +642,10 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         delete_icon = resource.ResourceManager().icon('delete')
 
         refresh_action = QAction(refresh_icon, 'Refresh', context_menu, statusTip='Refresh Tree Data')
-        add_all_items_action = QAction(queue_icon, 'Add all Items to Sync Queue', context_menu, statusTip='Add all items into Sync queue')
-        clear_queue_action = QAction(delete_icon, 'Clear Sync Queue', context_menu, statusTip='Clear All items from Sync Queue')
+        add_all_items_action = QAction(
+            queue_icon, 'Add all Items to Sync Queue', context_menu, statusTip='Add all items into Sync queue')
+        clear_queue_action = QAction(
+            delete_icon, 'Clear Sync Queue', context_menu, statusTip='Clear All items from Sync Queue')
 
         refresh_action.triggered.connect(self._on_refresh)
         add_all_items_action.triggered.connect(self._on_add_all_items_to_sync_queue)
@@ -672,8 +675,10 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         import_icon = resource.ResourceManager().icon('import')
         reference_icon = resource.ResourceManager().icon('reference')
 
-        open_in_artella_action = QAction(artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
-        add_to_sync_queue_action = QAction(queue_icon, 'Add to Sync Queue', context_menu, statusTip='Add item to Artella Syncer queue')
+        open_in_artella_action = QAction(
+            artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
+        add_to_sync_queue_action = QAction(
+            queue_icon, 'Add to Sync Queue', context_menu, statusTip='Add item to Artella Syncer queue')
         create_asset_action = QAction(teapot_icon, 'Create New Asset', context_menu, statusTip='Create New Asset')
         view_locally_action = QAction(eye_icon, 'View Locally', context_menu, statusTip='View File Locally')
 
@@ -691,9 +696,12 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
             dcc_menu = QMenu(context_menu)
             dcc_menu.setTitle('{} {}'.format(dcc_name.title(), dcc_version))
             dcc_menu.setIcon(dcc_icon)
-            open_in_dcc_action = QAction(open_icon, 'Open', dcc_menu, statusTip='Open Item in {}'.format(dcc_name.title()), )
-            import_in_dcc_action = QAction(import_icon, 'Import', dcc_menu, statusTip='Import Item in {}'.format(dcc_name.title()))
-            reference_in_dcc_action = QAction(reference_icon, 'Reference', dcc_menu, statusTip='Reference Item in {}'.format(dcc_name.title()))
+            open_in_dcc_action = QAction(
+                open_icon, 'Open', dcc_menu, statusTip='Open Item in {}'.format(dcc_name.title()), )
+            import_in_dcc_action = QAction(
+                import_icon, 'Import', dcc_menu, statusTip='Import Item in {}'.format(dcc_name.title()))
+            reference_in_dcc_action = QAction(
+                reference_icon, 'Reference', dcc_menu, statusTip='Reference Item in {}'.format(dcc_name.title()))
             context_menu.addMenu(dcc_menu)
             dcc_menu.addAction(open_in_dcc_action)
             dcc_menu.addAction(import_in_dcc_action)
@@ -873,7 +881,8 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
         if not self._artella_data:
             return None
 
-        if isinstance(self._artella_data, (artellaclasses.ArtellaDirectoryMetaData, artellaclasses.ArtellaAssetMetaData)):
+        if isinstance(
+                self._artella_data, (artellaclasses.ArtellaDirectoryMetaData, artellaclasses.ArtellaAssetMetaData)):
             return self._artella_data.path
         elif isinstance(self._artella_data, artellaclasses.ArtellaHeaderMetaData):
             return self._path
@@ -994,7 +1003,9 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.open_file(file_path=item_path)
             return True
         else:
-            LOGGER.warning('Impossible to open file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning(
+                'Impossible to open file: {} in {} because extension {} is not supported in DCC [{}]'.format(
+                    item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1011,7 +1022,9 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.import_file(file_path=item_path)
             return True
         else:
-            LOGGER.warning('Impossible to import file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning(
+                'Impossible to import file: {} in {} because extension {} is not supported in DCC [{}]'.format(
+                    item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1028,7 +1041,9 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
             tp.Dcc.reference_file(file_path=item_path)
             return True
         else:
-            LOGGER.warning('Impossible to reference file: {} in {} because extension {} is not supported in DCC [{}]'.format(item_path, tp.Dcc.get_name(), supported_extensions))
+            LOGGER.warning(
+                'Impossible to reference file: {} in {} because extension {} is not supported in DCC [{}]'.format(
+                    item_path, tp.Dcc.get_name(), supported_extensions))
 
         return False
 
@@ -1211,7 +1226,9 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
         queue_item = self.item_in_queue(item)
 
         if not queue_item:
-            queue_item = ArtellaSyncQueueItem(item.get_project(), item.get_name(), item.get_path(), item.get_icon(), item.is_file(), item.is_asset(), self)
+            queue_item = ArtellaSyncQueueItem(
+                item.get_project(), item.get_name(), item.get_path(),
+                item.get_icon(), item.is_file(), item.is_asset(), self)
             self.addTopLevelItem(queue_item)
 
         return queue_item
@@ -1259,8 +1276,10 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
         artella_icon = resource.ResourceManager().icon('artella')
         delete_icon = resource.ResourceManager().icon('delete')
 
-        open_in_artella_action = QAction(artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
-        delete_action = QAction(delete_icon, 'Remove from Sync Queue', context_menu, statusTip='Remove item from Sync Queue')
+        open_in_artella_action = QAction(
+            artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
+        delete_action = QAction(
+            delete_icon, 'Remove from Sync Queue', context_menu, statusTip='Remove item from Sync Queue')
 
         open_in_artella_action.triggered.connect(partial(self._on_open_item_in_artella, item))
         delete_action.triggered.connect(partial(self._on_remove_item, item))
@@ -1280,7 +1299,8 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
 
         delete_icon = resource.ResourceManager().icon('delete')
 
-        remove_queue_action = QAction(delete_icon, 'Clear Sync Queue', context_menu, statusTip='Remove All Items from Sync Queue')
+        remove_queue_action = QAction(
+            delete_icon, 'Clear Sync Queue', context_menu, statusTip='Remove All Items from Sync Queue')
 
         remove_queue_action.triggered.connect(self._on_clear)
 

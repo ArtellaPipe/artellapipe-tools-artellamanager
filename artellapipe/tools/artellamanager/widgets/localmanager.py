@@ -558,7 +558,8 @@ class ArtellaLocalSyncTree(QTreeWidget, object):
         """
 
         if skip_hidden:
-            return [self.topLevelItem(i) for i in range(self.topLevelItemCount()) if not self.topLevelItem(i).isHidden()]
+            return [
+                self.topLevelItem(i) for i in range(self.topLevelItemCount()) if not self.topLevelItem(i).isHidden()]
         else:
             return [self.topLevelItem(i) for i in range(self.topLevelItemCount())]
 
@@ -832,7 +833,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         self._progress.set_maximum(2)
         self._progress.setVisible(True)
         self._progress.set_value(1)
-        self._progress.set_text('Uploading new version to Artella: "{}". Please wait ...'.format(os.path.basename(item_path)))
+        self._progress.set_text(
+            'Uploading new version to Artella: "{}". Please wait ...'.format(os.path.basename(item_path)))
         self.repaint()
         try:
             valid = self._project.upload_working_version(
@@ -842,7 +844,8 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
             if valid:
                 self.syncOk.emit('New version for {} created successfully!'.format(os.path.basename(item_path)))
             else:
-                self.syncFailed.emit('Error while creating new file version for "{}"'.format(os.path.basename(item_path)))
+                self.syncFailed.emit(
+                    'Error while creating new file version for "{}"'.format(os.path.basename(item_path)))
         except Exception as e:
             self.repaint()
             msg = 'Error while creating new file version for "{}"'.format(item_path)
