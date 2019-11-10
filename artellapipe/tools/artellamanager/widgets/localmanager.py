@@ -32,8 +32,9 @@ import tpDccLib as tp
 from tpQtLib.core import base
 from tpQtLib.widgets import search, stack
 
-from artellapipe.core import artellalib
-from artellapipe.gui import progressbar
+import artellapipe
+from artellapipe.libs.artella.core import artellalib, artellaclasses
+from artellapipe.widgets import progressbar
 from artellapipe.utils import resource
 
 LOGGER = logging.getLogger()
@@ -51,6 +52,7 @@ class ArtellaLocalTreeModel(QFileSystemModel, object):
 class ArtellaLocalTreeView(QTreeView, object):
 
     selectedItems = Signal(list)
+    syncItem = Signal(str)
     lockItem = Signal(str)
     unlockItem = Signal(str)
     makeNewVersion = Signal(str)
@@ -172,37 +174,49 @@ class ArtellaLocalTreeView(QTreeView, object):
         contextual_menu.addSeparator()
 
         if os.path.isfile(item_path):
-            is_locked, locked_by_current_user = artellalib.is_locked(item_path)
-            history = artellalib.get_asset_history(item_path)
+            history = artellalib.get_file_history(item_path)
             file_versions = history.versions
+            is_updated = artellalib.is_updated(item_path)
+            is_locked, locked_by_current_user = artellalib.is_locked(item_path)
             if file_versions:
-                if is_locked:
-                    unlock_icon = resource.ResourceManager().icon('unlock')
-                    unlock_action = QAction(unlock_icon, 'Unlock File', contextual_menu)
-                    unlock_action.triggered.connect(partial(self._on_unlock_item, item_path))
-                    contextual_menu.addAction(unlock_action)
-                    if not locked_by_current_user:
-                        unlock_action.setEnabled(False)
-                        unlock_action.setText('Locked by other user')
+                if is_updated:
+                    if is_locked:
+                        unlock_icon = resource.ResourceManager().icon('unlock')
+                        unlock_action = QAction(unlock_icon, 'Unlock File', contextual_menu)
+                        unlock_action.triggered.connect(partial(self._on_unlock_item, item_path))
+                        contextual_menu.addAction(unlock_action)
+                        if not locked_by_current_user:
+                            unlock_action.setEnabled(False)
+                            unlock_action.setText('Locked by other user')
+                    else:
+                        lock_icon = resource.ResourceManager().icon('lock')
+                        lock_action = QAction(lock_icon, 'Lock File', contextual_menu)
+                        lock_action.triggered.connect(partial(self._on_lock_item, item_path))
+                        contextual_menu.addAction(lock_action)
                 else:
-                    lock_icon = resource.ResourceManager().icon('lock')
-                    lock_action = QAction(lock_icon, 'Lock File', contextual_menu)
-                    lock_action.triggered.connect(partial(self._on_lock_item, item_path))
-                    contextual_menu.addAction(lock_action)
+                    sync_icon = resource.ResourceManager().icon('sync')
+                    sync_action = QAction(sync_icon, 'Sync', contextual_menu)
+                    sync_action.triggered.connect(partial(self._on_sync_item, item_path))
+                    contextual_menu.addAction(sync_action)
 
-            if file_versions:
-                upload_icon = resource.ResourceManager().icon('upload')
-                new_version_action = QAction(upload_icon, 'Make New Version', contextual_menu)
-                new_version_action.triggered.connect(partial(self._on_make_new_version, item_path))
-                if not is_locked:
-                    new_version_action.setText('Make New Version | Lock File first!')
-                    new_version_action.setEnabled(False)
-                contextual_menu.addAction(new_version_action)
-            else:
-                add_icon = resource.ResourceManager().icon('add')
-                add_file_action = QAction(add_icon, 'Local Only | Add File', contextual_menu)
-                add_file_action.triggered.connect(partial(self._on_make_new_version, item_path))
-                contextual_menu.addAction(add_file_action)
+            if is_updated:
+                if file_versions:
+                    upload_icon = resource.ResourceManager().icon('upload')
+                    new_version_action = QAction(upload_icon, 'Make New Version', contextual_menu)
+                    new_version_action.triggered.connect(partial(self._on_make_new_version, item_path))
+                    if not is_locked:
+                        new_version_action.setText('Make New Version | Lock File first!')
+                        new_version_action.setEnabled(False)
+                    else:
+                        if not locked_by_current_user:
+                            new_version_action.setText('Lock by other user')
+                            new_version_action.setEnabled(False)
+                    contextual_menu.addAction(new_version_action)
+                else:
+                    add_icon = resource.ResourceManager().icon('add')
+                    add_file_action = QAction(add_icon, 'Local Only | Add File', contextual_menu)
+                    add_file_action.triggered.connect(partial(self._on_make_new_version, item_path))
+                    contextual_menu.addAction(add_file_action)
 
         return contextual_menu
 
@@ -267,6 +281,17 @@ class ArtellaLocalTreeView(QTreeView, object):
         relative_path = os.path.relpath(item_path, self._project.get_path())
         artella_url = '{}/{}'.format(self._project.get_artella_url(), relative_path)
         webbrowser.open(artella_url)
+
+    def _on_sync_item(self, item_path):
+        """
+        Internal callback function that is called when Sync action is pressed
+        :param item_path: str
+        """
+
+        if not os.path.exists(item_path):
+            return
+
+        self.syncItem.emit(item_path)
 
     def _on_lock_item(self, item_path):
         """
@@ -706,6 +731,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
 
     def setup_signals(self):
         self._tree.selectedItems.connect(self._on_selected_items)
+        self._tree.syncItem.connect(self._on_sync_item)
         self._tree.lockItem.connect(self._on_lock_item)
         self._tree.unlockItem.connect(self._on_unlock_item)
         self._tree.makeNewVersion.connect(self._on_make_new_version)
@@ -749,6 +775,18 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
             self._list_stack.slide_in_index(0)
 
         self._list.set_items(selected_items)
+
+    def _on_sync_item(self, item_path):
+        """
+        Internal callback function that is called when Sync action is pressed
+        :param item_path: str
+        :return:
+        """
+
+        if not os.path.exists(item_path):
+            return
+
+        artellapipe.FilesMgr().sync_files([item_path])
 
     def _on_lock_item(self, item_path):
         """
@@ -837,10 +875,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
             'Uploading new version to Artella: "{}". Please wait ...'.format(os.path.basename(item_path)))
         self.repaint()
         try:
-            valid = self._project.upload_working_version(
-                file_path=item_path,
-                skip_saving=True
-            )
+            valid = artellapipe.FilesMgr().upload_working_version(file_path=item_path, skip_saving=True)
             if valid:
                 self.syncOk.emit('New version for {} created successfully!'.format(os.path.basename(item_path)))
             else:

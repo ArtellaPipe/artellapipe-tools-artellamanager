@@ -22,9 +22,10 @@ from Qt.QtWidgets import *
 
 from tpQtLib.core import base
 
+from artellapipe.libs.artella.core import artellalib
 from artellapipe.utils import resource
-from artellapipe.core import defines, artellalib
-from artellapipe.gui import progressbar
+from artellapipe.core import defines
+from artellapipe.widgets import progressbar
 
 LOGGER = logging.getLogger()
 

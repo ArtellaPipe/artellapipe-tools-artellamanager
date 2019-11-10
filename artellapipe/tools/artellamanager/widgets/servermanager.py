@@ -30,9 +30,11 @@ import tpDccLib as tp
 from tpQtLib.core import base
 from tpQtLib.widgets import stack, breadcrumb, treewidgets
 
+import artellapipe
+from artellapipe.libs.artella.core import artellalib, artellaclasses
 from artellapipe.utils import resource, worker
-from artellapipe.core import defines, artellalib, artellaclasses
-from artellapipe.gui import waiter, progressbar
+from artellapipe.core import defines
+from artellapipe.widgets import waiter, progressbar
 
 LOGGER = logging.getLogger()
 
@@ -159,7 +161,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         Internal function that initializes tree
         """
 
-        assets_path = self._project.get_assets_path()
+        assets_path = artellapipe.AssetsMgr().get_assets_path()
         self._add_tree(assets_path)
 
     def _setup_toolbar(self):

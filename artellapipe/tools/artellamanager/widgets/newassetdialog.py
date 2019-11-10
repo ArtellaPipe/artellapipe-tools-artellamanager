@@ -22,7 +22,7 @@ from Qt.QtWidgets import *
 from tpQtLib.core import qtutils
 from tpQtLib.widgets import splitters, stack
 
-from artellapipe.gui import dialog, waiter, spinner
+from artellapipe.widgets import dialog, waiter, spinner
 from artellapipe.utils import worker
 
 LOGGER = logging.getLogger()
