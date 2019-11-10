@@ -1,2 +1,2 @@
-include source/artellapipe/tools/artellamanager/__logging__.ini
-include source/artellapipe/tools/artellamanager/resources/images/*.*
+include artellapipe/tools/artellamanager/__logging__.ini
+include artellapipe/tools/artellamanager/resources/images/*.*
