@@ -22,7 +22,7 @@ from sentry_sdk import capture_message
 from tpPyUtils import python
 from tpQtLib.widgets import lightbox
 
-from artellapipe.core import tool
+import artellapipe
 from artellapipe.tools.artellamanager.widgets import localmanager, newassetdialog, servermanager, urlsync
 
 LOGGER = logging.getLogger()
@@ -35,7 +35,7 @@ class ArtellaSyncerMode(object):
     URL = 'url'
 
 
-class ArtellaManager(tool.Tool, object):
+class ArtellaManager(artellapipe.Tool, object):
 
     LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
     SERVER_MANAGER = servermanager.ArtellaServerManagerwidget

@@ -31,9 +31,9 @@ from tpQtLib.core import base
 from tpQtLib.widgets import stack, breadcrumb, treewidgets
 
 import artellapipe
+from artellapipe.libs import artella
 from artellapipe.libs.artella.core import artellalib, artellaclasses
 from artellapipe.utils import resource, worker
-from artellapipe.core import defines
 from artellapipe.widgets import waiter, progressbar
 
 LOGGER = logging.getLogger()
@@ -586,7 +586,8 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
                 self._items.append(item)
                 current_ref += 1
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
-            working_path = os.path.join(status.path, defines.ARTELLA_WORKING_FOLDER)
+            working_folder = artella.config.get('server', 'working_folder')
+            working_path = os.path.join(status.path, working_folder)
             artella_data = artellalib.get_status(working_path)
             if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
                 for ref_name, ref_data in artella_data.references.items():
@@ -930,10 +931,16 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
         if not isinstance(self._artella_data, artellaclasses.ArtellaDirectoryMetaData):
             return False
 
-        item_path = self._artella_data.path
-        rel_path = os.path.dirname(os.path.relpath(item_path, os.path.dirname(self._project.get_assets_path())))
+        assets_folder = artella.config.get('server', 'assets_folder_name')
+        if not assets_folder:
+            LOGGER.warning('Assets Folder not properly defined in artellapipe-libs-artella configuration file!')
+            return False
 
-        return rel_path == defines.ARTELLA_ASSETS_FOLDER_NAME
+        item_path = self._artella_data.path
+        rel_path = os.path.dirname(
+            os.path.relpath(item_path, os.path.dirname(artellapipe.AssetsMgr().get_assets_path())))
+
+        return rel_path == assets_folder
 
     def get_icon(self):
         """
@@ -1477,6 +1484,8 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
             self.syncWarning.emit(msg)
             return
 
+        working_folder = artella.config.get('server', 'working_folder')
+
         self._progress.set_minimum(0)
         self._progress.set_maximum(len(items_to_sync))
         self._progress.setVisible(True)
@@ -1498,12 +1507,12 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
                     if self._sync_subfolders_cbx.isChecked() or item.is_asset():
                         valid_sync = artellalib.synchronize_path_with_folders(item_path, True)
                         if not valid_sync:
-                            item_path = os.path.join(item_path, defines.ARTELLA_WORKING_FOLDER)
+                            item_path = os.path.join(item_path, working_folder)
                             valid_sync = artellalib.synchronize_path_with_folders(item_path, True)
                     else:
                         valid_sync = artellalib.synchronize_path(item_path)
                         if not valid_sync:
-                            item_path = os.path.join(item_path, defines.ARTELLA_WORKING_FOLDER)
+                            item_path = os.path.join(item_path, working_folder)
                             valid_sync = artellalib.synchronize_path(item_path)
                 if valid_sync:
                     item.set_sync_status(ArtellaSyncQueueItemStatus.OK)
