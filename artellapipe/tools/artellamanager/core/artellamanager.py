@@ -20,6 +20,7 @@ from Qt.QtWidgets import *
 from sentry_sdk import capture_message
 
 from tpPyUtils import python
+from tpQtLib.core import base
 from tpQtLib.widgets import lightbox
 
 import artellapipe
@@ -36,18 +37,9 @@ class ArtellaSyncerMode(object):
 
 
 class ArtellaManager(artellapipe.Tool, object):
-
-    LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
-    SERVER_MANAGER = servermanager.ArtellaServerManagerwidget
-    URL_SYNC = urlsync.ArtellaURLSyncWidget
-    NEW_ASSET_DIALOG = newassetdialog.ArtellaNewAssetDialog
-
     def __init__(self, project, config, mode=ArtellaSyncerMode.ALL):
 
-        self._mode = python.force_list(mode)
-        self._local_widget = None
-        self._server_widget = None
-        self._url_widget = None
+        self._mode = mode
 
         super(ArtellaManager, self).__init__(project=project, config=config)
 
@@ -61,6 +53,38 @@ class ArtellaManager(artellapipe.Tool, object):
 
     def ui(self):
         super(ArtellaManager, self).ui()
+
+        artellamanager_widget = ArtellaManagerWidget(project=self._project, mode=self._mode)
+        self.main_layout.addWidget(artellamanager_widget)
+
+
+class ArtellaManagerWidget(base.BaseWidget, object):
+
+    LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
+    SERVER_MANAGER = servermanager.ArtellaServerManagerwidget
+    URL_SYNC = urlsync.ArtellaURLSyncWidget
+    NEW_ASSET_DIALOG = newassetdialog.ArtellaNewAssetDialog
+
+    def __init__(self, project, mode=ArtellaSyncerMode.ALL, parent=None):
+
+        self._project = project
+        self._mode = python.force_list(mode)
+        self._local_widget = None
+        self._server_widget = None
+        self._url_widget = None
+
+        super(ArtellaManagerWidget, self).__init__(parent=parent)
+
+    def get_main_layout(self):
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.setAlignment(Qt.AlignTop)
+
+        return main_layout
+
+    def ui(self):
+        super(ArtellaManagerWidget, self).ui()
 
         self._tab = QTabWidget()
         self.main_layout.addWidget(self._tab)
