@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.core.consts module
+===================================================
+
+.. automodule:: artellapipe.tools.artellamanager.core.consts
+   :members:
+   :undoc-members:
+   :show-inheritance:

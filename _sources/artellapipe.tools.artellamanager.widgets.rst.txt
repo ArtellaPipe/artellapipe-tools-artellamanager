@@ -6,6 +6,8 @@ Submodules
 
 .. toctree::
 
+   artellapipe.tools.artellamanager.widgets.artellamanagertool
+   artellapipe.tools.artellamanager.widgets.artellamanagerwidget
    artellapipe.tools.artellamanager.widgets.localmanager
    artellapipe.tools.artellamanager.widgets.newassetdialog
    artellapipe.tools.artellamanager.widgets.servermanager
