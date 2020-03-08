@@ -12,163 +12,59 @@ __license__ = "MIT"
 __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
-import logging
-
-from Qt.QtCore import *
-from Qt.QtWidgets import *
-
-from sentry_sdk import capture_message
-
-from tpPyUtils import python
-from tpQtLib.core import base
-from tpQtLib.widgets import lightbox
-
 import artellapipe
-from artellapipe.tools.artellamanager.widgets import localmanager, newassetdialog, servermanager, urlsync
 
-LOGGER = logging.getLogger()
+# Defines ID of the tool
+TOOL_ID = 'artellapipe-tools-artellamanager'
 
-
-class ArtellaSyncerMode(object):
-    ALL = 'all'
-    LOCAL = 'local'
-    SERVER = 'server'
-    URL = 'url'
+# We skip the reloading of this module when launching the tool
+no_reload = True
 
 
-class ArtellaManager(artellapipe.Tool, object):
-    def __init__(self, project, config, mode=ArtellaSyncerMode.ALL):
+class ArtellapipeManagerTool(artellapipe.Tool, object):
+    def __init__(self, *args, **kwargs):
+        super(ArtellapipeManagerTool, self).__init__(*args, **kwargs)
 
-        self._mode = mode
+    @classmethod
+    def config_dict(cls, file_name=None):
+        base_tool_config = artellapipe.Tool.config_dict(file_name=file_name)
+        tool_config = {
+            'name': 'Artella Manager',
+            'id': 'artellapipe-tools-artellamanager',
+            'logo': 'artellamanager_logo',
+            'icon': 'artella',
+            'tooltip': 'Tool to manage Artella server and local files',
+            'tags': ['artella', 'manager', 'files'],
+            'sentry_id': 'https://040ed0435de64013afb25a47d04e3cf1@sentry.io/1763161',
+            'is_checkable': False,
+            'is_checked': False,
+            'menu_ui': {'label': 'Artella Manager', 'load_on_startup': False, 'color': '', 'background_color': ''},
+            'menu': [
+                {'label': 'Artella',
+                 'type': 'menu', 'children': [{'id': 'artellapipe-tools-artellamanager', 'type': 'tool'}]}],
+            'shelf': [
+                {'name': 'Artella',
+                 'children': [{'id': 'artellapipe-tools-artellamanager', 'display_label': False, 'type': 'tool'}]}
+            ]
+        }
+        base_tool_config.update(tool_config)
 
-        super(ArtellaManager, self).__init__(project=project, config=config)
-
-    def get_main_layout(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        main_layout.setAlignment(Qt.AlignTop)
-
-        return main_layout
-
-    def ui(self):
-        super(ArtellaManager, self).ui()
-
-        artellamanager_widget = ArtellaManagerWidget(project=self._project, mode=self._mode)
-        self.main_layout.addWidget(artellamanager_widget)
+        return base_tool_config
 
 
-class ArtellaManagerWidget(base.BaseWidget, object):
+class ArtellapipeManagerToolset(artellapipe.Toolset, object):
+    ID = TOOL_ID
 
-    LOCAL_MANAGER = localmanager.ArtellaLocalManagerWidget
-    SERVER_MANAGER = servermanager.ArtellaServerManagerwidget
-    URL_SYNC = urlsync.ArtellaURLSyncWidget
-    NEW_ASSET_DIALOG = newassetdialog.ArtellaNewAssetDialog
+    def __init__(self, *args, **kwargs):
 
-    def __init__(self, project, mode=ArtellaSyncerMode.ALL, parent=None):
+        self._mode = kwargs.pop('mode', 'all')
 
-        self._project = project
-        self._mode = python.force_list(mode)
-        self._local_widget = None
-        self._server_widget = None
-        self._url_widget = None
+        super(ArtellapipeManagerToolset, self).__init__(*args, **kwargs)
 
-        super(ArtellaManagerWidget, self).__init__(parent=parent)
+    def contents(self):
 
-    def get_main_layout(self):
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        main_layout.setAlignment(Qt.AlignTop)
+        from artellapipe.tools.artellamanager.widgets import artellamanagertool
 
-        return main_layout
-
-    def ui(self):
-        super(ArtellaManagerWidget, self).ui()
-
-        self._tab = QTabWidget()
-        self.main_layout.addWidget(self._tab)
-
-        if ArtellaSyncerMode.ALL in self._mode:
-            self._local_widget = self.LOCAL_MANAGER(project=self._project)
-            self._server_widget = self.SERVER_MANAGER(project=self._project)
-            self._url_widget = self.URL_SYNC(project=self._project)
-            self._tab.addTab(self._local_widget, 'Local')
-            self._tab.addTab(self._server_widget, 'Server')
-            self._tab.addTab(self._url_widget, 'URL')
-        else:
-            widgets_to_add = list()
-            if ArtellaSyncerMode.LOCAL in self._mode:
-                self._local_widget = self.LOCAL_MANAGER(project=self._project)
-                widgets_to_add.append(('Local', self._local_widget))
-            if ArtellaSyncerMode.SERVER in self._mode:
-                self._server_widget = self.SERVER_MANAGER(project=self._project)
-                widgets_to_add.append(('Server', self._server_widget))
-            if ArtellaSyncerMode.URL in self._mode:
-                self._url_widget = self.URL_SYNC(project=self._project)
-                widgets_to_add.append(('URL', self._url_widget))
-
-            for widget in widgets_to_add:
-                self._tab.addTab(widget[1], widget[0])
-
-    def setup_signals(self):
-        if self._local_widget:
-            self._local_widget.syncOk.connect(self._on_local_sync_completed)
-            self._local_widget.syncWarning.connect(self._on_local_sync_warning)
-            self._local_widget.syncFailed.connect(self._on_local_sync_failed)
-        if self._server_widget:
-            self._server_widget.workerFailed.connect(self._on_server_worker_failed)
-            self._server_widget.syncOk.connect(self._on_server_sync_completed)
-            self._server_widget.syncWarning.connect(self._on_server_sync_warning)
-            self._server_widget.syncFailed.connect(self._on_server_sync_failed)
-            self._server_widget.createAsset.connect(self._on_create_new_asset)
-        if self._url_widget:
-            self._url_widget.syncOk.connect(self._on_url_sync_completed)
-            self._url_widget.syncWarning.connect(self._on_url_sync_warning)
-            self._url_widget.syncFailed.connect(self._on_url_sync_failed)
-
-    def closeEvent(self, event):
-        if self._server_widget:
-            if self._server_widget.worker_is_running():
-                self._server_widget.stop_artella_worker()
-        event.accept()
-
-    def _on_local_sync_completed(self, ok_msg):
-        self.show_ok_message(ok_msg)
-
-    def _on_local_sync_warning(self, warning_msg):
-        self.show_warning_message(warning_msg)
-
-    def _on_local_sync_failed(self, error_msg):
-        self.show_error_message(error_msg)
-
-    def _on_server_worker_failed(self, error_msg, trace):
-        self.show_error_message(error_msg)
-        LOGGER.error('{} | {}'.format(error_msg, trace))
-        capture_message('{} | {}'.format(error_msg, trace))
-        self.close()
-
-    def _on_server_sync_completed(self, ok_msg):
-        self.show_ok_message(ok_msg)
-
-    def _on_server_sync_warning(self, warning_msg):
-        self.show_warning_message(warning_msg)
-
-    def _on_server_sync_failed(self, error_msg):
-        self.show_error_message(error_msg)
-
-    def _on_url_sync_completed(self, ok_msg):
-        self.show_ok_message(ok_msg)
-
-    def _on_url_sync_warning(self, warning_msg):
-        self.show_warning_message(warning_msg)
-
-    def _on_url_sync_failed(self, error_msg):
-        self.show_error_message(error_msg)
-
-    def _on_create_new_asset(self, item):
-        new_asset_dlg = self.NEW_ASSET_DIALOG(project=self._project, asset_path=item.get_path())
-        self._lightbox = lightbox.Lightbox(self)
-        self._lightbox.set_widget(new_asset_dlg)
-        self._lightbox.show()
-        new_asset_dlg.show()
+        artella_manager = artellamanagertool.ArtellaManager(
+            project=self._project, config=self._config, settings=self._settings, mode=self._mode, parent=self)
+        return [artella_manager]

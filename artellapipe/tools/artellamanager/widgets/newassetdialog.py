@@ -19,8 +19,8 @@ from sentry_sdk import capture_message
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-from tpQtLib.core import qtutils
-from tpQtLib.widgets import splitters, stack
+from tpDcc.libs.qt.core import qtutils
+from tpDcc.libs.qt.widgets import splitters, stack
 
 from artellapipe.widgets import dialog, waiter, spinner
 from artellapipe.utils import worker

@@ -20,11 +20,11 @@ from sentry_sdk import capture_exception
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-from tpQtLib.core import base
+import tpDcc
+from tpDcc.libs.qt.core import base
 
+from artellapipe.libs import artella
 from artellapipe.libs.artella.core import artellalib
-from artellapipe.utils import resource
-from artellapipe.core import defines
 from artellapipe.widgets import progressbar
 
 LOGGER = logging.getLogger()
@@ -65,7 +65,7 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         self._sync_subfolders_cbx.setChecked(True)
         self._sync_subfolders_cbx.setMaximumWidth(110)
         self._sync_btn = QPushButton('Sync')
-        self._sync_btn.setIcon(resource.ResourceManager().icon('sync'))
+        self._sync_btn.setIcon(tpDcc.ResourcesMgr().icon('sync'))
         buttons_layout.addWidget(self._sync_subfolders_cbx)
         buttons_layout.addWidget(self._sync_btn)
 
@@ -89,7 +89,11 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         if not url_to_sync.startswith('https://'):
             url_to_sync = 'https://' + url_to_sync
 
-        root_url = '{}/project/{}/files'.format(defines.ARTELLA_WEB, self._project.id)
+        artella_url = artella.config.get('server', 'url')
+        if not artella_url:
+            return
+
+        root_url = '{}/project/{}/files'.format(artella_url, self._project.id)
         base_url = url_to_sync.replace(root_url, '')
         url_to_sync = url_to_sync.replace(root_url, self._project.get_path())
 

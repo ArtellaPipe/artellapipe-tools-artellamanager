@@ -26,16 +26,15 @@ from Qt.QtCore import *
 from Qt.QtWidgets import *
 from Qt.QtGui import *
 
-from tpPyUtils import fileio
+from tpDcc.libs.python import fileio
 
-import tpDccLib as tp
-from tpQtLib.core import base
-from tpQtLib.widgets import search, stack
+import tpDcc as tp
+from tpDcc.libs.qt.core import base
+from tpDcc.libs.qt.widgets import search, stack
 
 import artellapipe
-from artellapipe.libs.artella.core import artellalib, artellaclasses
+from artellapipe.libs.artella.core import artellalib
 from artellapipe.widgets import progressbar
-from artellapipe.utils import resource
 
 LOGGER = logging.getLogger()
 
@@ -161,12 +160,12 @@ class ArtellaLocalTreeView(QTreeView, object):
 
         contextual_menu = QMenu(self)
 
-        artella_icon = resource.ResourceManager().icon('artella')
+        artella_icon = tp.ResourcesMgr().icon('artella')
         artella_action = QAction(artella_icon, 'Open in Artella', contextual_menu)
         artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
         contextual_menu.addAction(artella_action)
 
-        eye_icon = resource.ResourceManager().icon('eye')
+        eye_icon = tp.ResourcesMgr().icon('eye')
         view_locally_action = QAction(eye_icon, 'View Locally', contextual_menu)
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
         contextual_menu.addAction(view_locally_action)
@@ -181,7 +180,7 @@ class ArtellaLocalTreeView(QTreeView, object):
             if file_versions:
                 if is_updated:
                     if is_locked:
-                        unlock_icon = resource.ResourceManager().icon('unlock')
+                        unlock_icon = tp.ResourcesMgr().icon('unlock')
                         unlock_action = QAction(unlock_icon, 'Unlock File', contextual_menu)
                         unlock_action.triggered.connect(partial(self._on_unlock_item, item_path))
                         contextual_menu.addAction(unlock_action)
@@ -189,19 +188,19 @@ class ArtellaLocalTreeView(QTreeView, object):
                             unlock_action.setEnabled(False)
                             unlock_action.setText('Locked by other user')
                     else:
-                        lock_icon = resource.ResourceManager().icon('lock')
+                        lock_icon = tp.ResourcesMgr().icon('lock')
                         lock_action = QAction(lock_icon, 'Lock File', contextual_menu)
                         lock_action.triggered.connect(partial(self._on_lock_item, item_path))
                         contextual_menu.addAction(lock_action)
                 else:
-                    sync_icon = resource.ResourceManager().icon('sync')
+                    sync_icon = tp.ResourcesMgr().icon('sync')
                     sync_action = QAction(sync_icon, 'Sync', contextual_menu)
                     sync_action.triggered.connect(partial(self._on_sync_item, item_path))
                     contextual_menu.addAction(sync_action)
 
             if is_updated:
                 if file_versions:
-                    upload_icon = resource.ResourceManager().icon('upload')
+                    upload_icon = tp.ResourcesMgr().icon('upload')
                     new_version_action = QAction(upload_icon, 'Make New Version', contextual_menu)
                     new_version_action.triggered.connect(partial(self._on_make_new_version, item_path))
                     if not is_locked:
@@ -213,7 +212,7 @@ class ArtellaLocalTreeView(QTreeView, object):
                             new_version_action.setEnabled(False)
                     contextual_menu.addAction(new_version_action)
                 else:
-                    add_icon = resource.ResourceManager().icon('add')
+                    add_icon = tp.ResourcesMgr().icon('add')
                     add_file_action = QAction(add_icon, 'Local Only | Add File', contextual_menu)
                     add_file_action.triggered.connect(partial(self._on_make_new_version, item_path))
                     contextual_menu.addAction(add_file_action)
@@ -461,10 +460,10 @@ class ArtellaSyncItemStatus(object):
 
 class ArtellaSyncItem(QTreeWidgetItem, object):
 
-    WAIT_PIXMAP = resource.ResourceManager().pixmap('clock', category='icons', theme='color', extension='png')
-    RUN_PIXMAP = resource.ResourceManager().pixmap('clock_start', category='icons', theme='color', extension='png')
-    OK_PIXMAP = resource.ResourceManager().pixmap('ok', category='icons', theme='color', extension='png')
-    ERROR_PIXMAP = resource.ResourceManager().pixmap('error', category='icons', theme='color', extension='png')
+    WAIT_PIXMAP = tp.ResourcesMgr().pixmap('clock', category='icons', theme='color', extension='png')
+    RUN_PIXMAP = tp.ResourcesMgr().pixmap('clock_start', category='icons', theme='color', extension='png')
+    OK_PIXMAP = tp.ResourcesMgr().pixmap('ok', category='icons', theme='color', extension='png')
+    ERROR_PIXMAP = tp.ResourcesMgr().pixmap('error', category='icons', theme='color', extension='png')
 
     def __init__(self, name, path, icon, color=None, parent=None):
         super(ArtellaSyncItem, self).__init__()
@@ -686,7 +685,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         no_items_layout.setSpacing(0)
         no_items_widget.setLayout(no_items_layout)
         no_items_lbl = QLabel()
-        no_items_pixmap = resource.ResourceManager().pixmap('sync_no_items')
+        no_items_pixmap = tp.ResourcesMgr().pixmap('sync_no_items')
         no_items_lbl.setPixmap(no_items_pixmap)
         no_items_lbl.setAlignment(Qt.AlignCenter)
         no_items_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))
@@ -716,7 +715,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         self._sync_subfolders_cbx.setChecked(True)
         self._sync_subfolders_cbx.setMaximumWidth(110)
         self._sync_btn = QPushButton('Sync')
-        self._sync_btn.setIcon(resource.ResourceManager().icon('sync'))
+        self._sync_btn.setIcon(tp.ResourcesMgr().icon('sync'))
         buttons_layout.addWidget(self._sync_subfolders_cbx)
         buttons_layout.addWidget(self._sync_btn)
         list_layout.addLayout(buttons_layout)
@@ -743,7 +742,7 @@ class ArtellaLocalManagerWidget(base.BaseWidget, object):
         Internal function that setup menu bar
         """
 
-        refresh_icon = resource.ResourceManager().icon('refresh')
+        refresh_icon = tp.ResourcesMgr().icon('refresh')
 
         refresh_btn = QToolButton()
         refresh_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)

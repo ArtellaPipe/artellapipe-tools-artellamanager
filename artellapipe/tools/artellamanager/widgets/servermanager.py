@@ -23,17 +23,17 @@ from sentry_sdk import capture_message, capture_exception
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 
-from tpPyUtils import python
+from tpDcc.libs.python import python
 
-import tpDccLib as tp
+import tpDcc as tp
 
-from tpQtLib.core import base
-from tpQtLib.widgets import stack, breadcrumb, treewidgets
+from tpDcc.libs.qt.core import base
+from tpDcc.libs.qt.widgets import stack, breadcrumb, treewidgets
 
 import artellapipe
 from artellapipe.libs import artella
 from artellapipe.libs.artella.core import artellalib, artellaclasses
-from artellapipe.utils import resource, worker
+from artellapipe.utils import worker
 from artellapipe.widgets import waiter, progressbar
 
 LOGGER = logging.getLogger()
@@ -82,11 +82,11 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         self._breadcrumb = breadcrumb.BreadcrumbFrame()
         self._queue_widget = ArtellaSyncQueueWidget(project=self._project)
 
-        back_icon = resource.ResourceManager().icon('back')
+        back_icon = tp.ResourcesMgr().icon('back')
         self._back_btn = QPushButton()
         self._back_btn.setIcon(back_icon)
 
-        next_icon = resource.ResourceManager().icon('forward')
+        next_icon = tp.ResourcesMgr().icon('forward')
         self._next_btn = QPushButton()
         self._next_btn.setIcon(next_icon)
 
@@ -169,9 +169,9 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         Internal function that setup menu bar
         """
 
-        refresh_icon = resource.ResourceManager().icon('refresh')
-        queue_icon = resource.ResourceManager().icon('queue')
-        delete_icon = resource.ResourceManager().icon('delete')
+        refresh_icon = tp.ResourcesMgr().icon('refresh')
+        queue_icon = tp.ResourcesMgr().icon('queue')
+        delete_icon = tp.ResourcesMgr().icon('delete')
 
         refresh_btn = QToolButton()
         refresh_btn.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
@@ -640,9 +640,9 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
 
         context_menu = QMenu(self)
 
-        refresh_icon = resource.ResourceManager().icon('refresh')
-        queue_icon = resource.ResourceManager().icon('queue')
-        delete_icon = resource.ResourceManager().icon('delete')
+        refresh_icon = tp.ResourcesMgr().icon('refresh')
+        queue_icon = tp.ResourcesMgr().icon('queue')
+        delete_icon = tp.ResourcesMgr().icon('delete')
 
         refresh_action = QAction(refresh_icon, 'Refresh', context_menu, statusTip='Refresh Tree Data')
         add_all_items_action = QAction(
@@ -670,13 +670,13 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         if not item:
             return context_menu
 
-        artella_icon = resource.ResourceManager().icon('artella')
-        queue_icon = resource.ResourceManager().icon('queue')
-        teapot_icon = resource.ResourceManager().icon('teapot')
-        eye_icon = resource.ResourceManager().icon('eye')
-        open_icon = resource.ResourceManager().icon('open')
-        import_icon = resource.ResourceManager().icon('import')
-        reference_icon = resource.ResourceManager().icon('reference')
+        artella_icon = tp.ResourcesMgr().icon('artella')
+        queue_icon = tp.ResourcesMgr().icon('queue')
+        teapot_icon = tp.ResourcesMgr().icon('teapot')
+        eye_icon = tp.ResourcesMgr().icon('eye')
+        open_icon = tp.ResourcesMgr().icon('open')
+        import_icon = tp.ResourcesMgr().icon('import')
+        reference_icon = tp.ResourcesMgr().icon('reference')
 
         open_in_artella_action = QAction(
             artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
@@ -695,7 +695,7 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
         dcc_name = tp.Dcc.get_name()
         if dcc_name != tp.Dccs.Unknown and item.is_file():
             dcc_version = tp.Dcc.get_version_name()
-            dcc_icon = resource.ResourceManager().icon(dcc_name)
+            dcc_icon = tp.ResourcesMgr().icon(dcc_name)
             dcc_menu = QMenu(context_menu)
             dcc_menu.setTitle('{} {}'.format(dcc_name.title(), dcc_version))
             dcc_menu.setIcon(dcc_icon)
@@ -821,9 +821,9 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
 
 class ArtellaSyncItem(QTreeWidgetItem, object):
 
-    ICON_UNKNOWN = resource.ResourceManager().icon('question')
-    ICON_FOLDER = resource.ResourceManager().icon('folder')
-    ICON_ASSET = resource.ResourceManager().icon('teapot')
+    ICON_UNKNOWN = tp.ResourcesMgr().icon('question')
+    ICON_FOLDER = tp.ResourcesMgr().icon('folder')
+    ICON_ASSET = tp.ResourcesMgr().icon('teapot')
 
     def __init__(self, project, name, path, artella_data, is_file=False, file_icon=None, parent=None):
         super(ArtellaSyncItem, self).__init__(parent)
@@ -1073,10 +1073,10 @@ class ArtellaSyncQueueItemStatus(object):
 
 class ArtellaSyncQueueItem(QTreeWidgetItem, object):
 
-    WAIT_ICON = resource.ResourceManager().icon('clock')
-    RUN_ICON = resource.ResourceManager().icon('clock_start')
-    OK_ICON = resource.ResourceManager().icon('ok')
-    ERROR_ICON = resource.ResourceManager().icon('error')
+    WAIT_ICON = tp.ResourcesMgr().icon('clock')
+    RUN_ICON = tp.ResourcesMgr().icon('clock_start')
+    OK_ICON = tp.ResourcesMgr().icon('ok')
+    ERROR_ICON = tp.ResourcesMgr().icon('error')
 
     def __init__(self, project, name, path, icon, is_file, is_asset, parent=None):
         super(ArtellaSyncQueueItem, self).__init__(parent)
@@ -1282,8 +1282,8 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
 
         context_menu = QMenu(self)
 
-        artella_icon = resource.ResourceManager().icon('artella')
-        delete_icon = resource.ResourceManager().icon('delete')
+        artella_icon = tp.ResourcesMgr().icon('artella')
+        delete_icon = tp.ResourcesMgr().icon('delete')
 
         open_in_artella_action = QAction(
             artella_icon, 'Open in Artella', context_menu, statusTip='Open Item in Artella')
@@ -1306,7 +1306,7 @@ class ArtellaSyncQueueTree(QTreeWidget, object):
 
         context_menu = QMenu(self)
 
-        delete_icon = resource.ResourceManager().icon('delete')
+        delete_icon = tp.ResourcesMgr().icon('delete')
 
         remove_queue_action = QAction(
             delete_icon, 'Clear Sync Queue', context_menu, statusTip='Remove All Items from Sync Queue')
@@ -1394,7 +1394,7 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
         no_items_layout.setSpacing(0)
         no_items_widget.setLayout(no_items_layout)
         no_items_lbl = QLabel()
-        no_items_pixmap = resource.ResourceManager().pixmap('sync_no_items')
+        no_items_pixmap = tp.ResourcesMgr().pixmap('sync_no_items')
         no_items_lbl.setPixmap(no_items_pixmap)
         no_items_lbl.setAlignment(Qt.AlignCenter)
         no_items_layout.addItem(QSpacerItem(0, 10, QSizePolicy.Preferred, QSizePolicy.Expanding))
