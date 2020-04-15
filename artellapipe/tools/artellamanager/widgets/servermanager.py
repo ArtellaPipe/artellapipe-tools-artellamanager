@@ -220,7 +220,10 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         if not tree_paths:
             return False
 
-        self._breadcrumb.set(tree_paths)
+        path_items = list()
+        for tree_path in tree_paths:
+            path_items.append({'text': tree_path})
+        self._breadcrumb.set_items(path_items)
 
         return True
 
@@ -229,7 +232,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         Internal function that resets the title of the breadcrumb
         """
 
-        self._breadcrumb.set(['Retrieving data from Artella ...'])
+        self._breadcrumb.set_items([{'text': 'Retrieving data from Artella ...'}])
 
     def _show_loading_widget(self):
         """
@@ -421,11 +424,11 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         """
 
         if index == 0:
-            self._breadcrumb.set(['Retrieving data from Artella ...'])
+            self._breadcrumb.set_items([{'text': 'Retrieving data from Artella ...'}])
         else:
             valid_update = self._update_title()
             if not valid_update:
-                self._breadcrumb.set([''])
+                self._breadcrumb.set_items([{'text': ''}])
 
     def _on_update_breadcrumb(self, msg):
         """
@@ -433,7 +436,7 @@ class ArtellaServerManagerwidget(base.BaseWidget, object):
         :param msg: str
         """
 
-        self._breadcrumb.set([msg])
+        self._breadcrumb.set_items([{'text': msg}])
 
     def _on_add_item_to_sync_queue(self, item):
         """
@@ -586,7 +589,7 @@ class ArtellaSyncTree(treewidgets.TreeWidget, object):
                 self._items.append(item)
                 current_ref += 1
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
-            working_folder = artella.config.get('server', 'working_folder')
+            working_folder = self._project.get_working_folder()
             working_path = os.path.join(status.path, working_folder)
             artella_data = artellalib.get_status(working_path)
             if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
@@ -931,9 +934,9 @@ class ArtellaSyncItem(QTreeWidgetItem, object):
         if not isinstance(self._artella_data, artellaclasses.ArtellaDirectoryMetaData):
             return False
 
-        assets_folder = artella.config.get('server', 'assets_folder_name')
+        assets_folder = self._project.config.get('assets_folder')
         if not assets_folder:
-            LOGGER.warning('Assets Folder not properly defined in artellapipe-libs-artella configuration file!')
+            LOGGER.warning('Assets Folder not properly defined in artellapipe-project configuration file!')
             return False
 
         item_path = self._artella_data.path
@@ -1484,7 +1487,7 @@ class ArtellaSyncQueueWidget(base.BaseWidget, object):
             self.syncWarning.emit(msg)
             return
 
-        working_folder = artella.config.get('server', 'working_folder')
+        working_folder = self._project.get_working_folder()
 
         self._progress.set_minimum(0)
         self._progress.set_maximum(len(items_to_sync))

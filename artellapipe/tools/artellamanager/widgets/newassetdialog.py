@@ -20,7 +20,7 @@ from Qt.QtCore import *
 from Qt.QtWidgets import *
 
 from tpDcc.libs.qt.core import qtutils
-from tpDcc.libs.qt.widgets import splitters, stack
+from tpDcc.libs.qt.widgets import dividers, stack
 
 from artellapipe.widgets import dialog, waiter, spinner
 from artellapipe.utils import worker
@@ -82,7 +82,7 @@ class ArtellaNewAssetDialog(dialog.ArtellaDialog, object):
         self._asset_layout.addWidget(asset_name_lbl)
         self._asset_layout.addWidget(self._asset_name_line)
 
-        self._asset_layout.addLayout(splitters.SplitterLayout())
+        self._asset_layout.addLayout(dividers.DividerLayout())
 
         folders_lbl = QLabel('Asset Folders')
         self._asset_layout.addWidget(folders_lbl)

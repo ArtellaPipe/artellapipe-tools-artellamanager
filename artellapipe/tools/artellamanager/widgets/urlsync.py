@@ -89,7 +89,7 @@ class ArtellaURLSyncWidget(base.BaseWidget, object):
         if not url_to_sync.startswith('https://'):
             url_to_sync = 'https://' + url_to_sync
 
-        artella_url = artella.config.get('server', 'url')
+        artella_url = artella.config.get('server', self._project.get_project_type()).get('url')
         if not artella_url:
             return
 
