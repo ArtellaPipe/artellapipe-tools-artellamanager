@@ -1,2 +1,4 @@
 include artellapipe/tools/artellamanager/__logging__.ini
 recursive-include artellapipe/tools/artellamanager/resources/* *.*
+include versioneer.py
+include artellapipe/tools/artellamanager/_version.py
