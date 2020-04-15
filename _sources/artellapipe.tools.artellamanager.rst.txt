@@ -5,6 +5,7 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
    artellapipe.tools.artellamanager.core
    artellapipe.tools.artellamanager.widgets
