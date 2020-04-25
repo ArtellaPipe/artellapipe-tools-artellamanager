@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.workers module
+=======================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.workers
+   :members:
+   :undoc-members:
+   :show-inheritance:

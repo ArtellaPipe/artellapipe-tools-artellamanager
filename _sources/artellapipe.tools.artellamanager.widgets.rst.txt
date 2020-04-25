@@ -13,6 +13,7 @@ Submodules
    artellapipe.tools.artellamanager.widgets.newassetdialog
    artellapipe.tools.artellamanager.widgets.servermanager
    artellapipe.tools.artellamanager.widgets.urlsync
+   artellapipe.tools.artellamanager.widgets.workers
 
 Module contents
 ---------------
