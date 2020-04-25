@@ -8,7 +8,6 @@ Submodules
    :maxdepth: 4
 
    artellapipe.tools.artellamanager.core.artellamanager
-   artellapipe.tools.artellamanager.core.consts
 
 Module contents
 ---------------
