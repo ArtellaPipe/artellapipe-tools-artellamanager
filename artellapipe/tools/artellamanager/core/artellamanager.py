@@ -66,5 +66,5 @@ class ArtellapipeManagerToolset(artellapipe.Toolset, object):
         from artellapipe.tools.artellamanager.widgets import artellamanagertool
 
         artella_manager = artellamanagertool.ArtellaManager(
-            project=self._project, config=self._config, settings=self._settings, mode=self._mode, parent=self)
+            project=self._project, config=self._config, settings=self._settings, parent=self)
         return [artella_manager]
