@@ -23,7 +23,7 @@ from Qt.QtGui import *
 
 import tpDcc as tp
 from tpDcc.libs.python import fileio, path as path_utils
-from tpDcc.libs.qt.core import base
+from tpDcc.libs.qt.core import base, qtutils
 from tpDcc.libs.qt.widgets import stack, loading, dividers, buttons, message, lineedit, search, progressbar, toast
 
 import artellapipe
@@ -1024,10 +1024,14 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             fileio.open_browser(item_path)
 
     def _on_open_file(self, item_path):
-        return tp.Dcc.open_file(item_path)
+        res = qtutils.show_question(self, 'Opening File', 'Are you sure you want to open the file?')
+        if res == QMessageBox.StandardButton.Yes:
+            return tp.Dcc.open_file(item_path)
 
     def _on_import_file(self, item_path):
-        return tp.Dcc.import_file(item_path, force=True)
+        res = qtutils.show_question(self, 'Importing File', 'Are you sure you want to import the file?')
+        if res == QMessageBox.StandardButton.Yes:
+            return tp.Dcc.import_file(item_path, force=True)
 
     def _on_lock_file(self, item, refresh_toolbar=True):
         item_path = item.path
