@@ -81,6 +81,7 @@ class ArtellaManagerFolderView(QTreeView, object):
         artella_action = QAction(artella_icon, 'Open in Artella', menu)
         view_locally_action = QAction(eye_icon, 'View Locally', menu)
         copy_path_action = QAction(copy_icon, 'Copy Folder Path', menu)
+        copy_artella_path_action = QAction(copy_icon, 'Copy Artella Folder Path', menu)
         sync_action = QAction(sync_icon, 'Sync Recursive', menu)
 
         menu.addAction(refresh_action)
@@ -89,6 +90,7 @@ class ArtellaManagerFolderView(QTreeView, object):
         menu.addAction(view_locally_action)
         menu.addSeparator()
         menu.addAction(copy_path_action)
+        menu.addAction(copy_artella_path_action)
         menu.addSeparator()
         menu.addAction(sync_action)
 
@@ -96,14 +98,12 @@ class ArtellaManagerFolderView(QTreeView, object):
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
         artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
         copy_path_action.triggered.connect(partial(self._on_copy_path, item_path))
+        copy_artella_path_action.triggered.connect(partial(self._on_copy_artella_path, item_path))
         sync_action.triggered.connect(partial(self._on_sync_folder, item_path))
 
         return menu
 
-    def _on_refresh_item(self):
-        self.refreshSelectedFolder.emit(self.selectedIndexes())
-
-    def _on_open_item_in_artella(self, item_path):
+    def _get_folder_artella_url(self, item_path):
         if not os.path.exists(item_path):
             return
 
@@ -112,6 +112,20 @@ class ArtellaManagerFolderView(QTreeView, object):
 
         relative_path = os.path.relpath(item_path, self._project.get_path())
         artella_url = '{}/{}'.format(self._project.get_artella_url(), relative_path)
+
+        return artella_url
+
+    def _on_refresh_item(self):
+        self.refreshSelectedFolder.emit(self.selectedIndexes())
+
+    def _on_open_item_in_artella(self, item_path):
+        if not item_path:
+            return
+
+        artella_url = self._get_folder_artella_url(item_path)
+        if not artella_url:
+            return
+
         webbrowser.open(artella_url)
 
     def _on_open_item_folder(self, item_path):
@@ -130,6 +144,19 @@ class ArtellaManagerFolderView(QTreeView, object):
         clipboard.setText(item_path, QClipboard.Clipboard)
         if clipboard.supportsSelection():
             clipboard.setText(item_path, QClipboard.Selection)
+
+    def _on_copy_artella_path(self, item_path):
+        if not item_path:
+            return
+
+        artella_url = self._get_folder_artella_url(item_path)
+        if not artella_url:
+            return
+
+        clipboard = QApplication.clipboard()
+        clipboard.setText(artella_url, QClipboard.Clipboard)
+        if clipboard.supportsSelection():
+            clipboard.setText(artella_url, QClipboard.Selection)
 
     def _on_sync_folder(self, item_path):
         if not os.path.exists(item_path):
@@ -191,6 +218,7 @@ class ArtellaFileSignals(QObject, object):
     viewLocallyItem = Signal(str)
     openArtellaItem = Signal(str)
     copyFilePath = Signal(str)
+    copyArtellaFilePath = Signal(str)
     openFile = Signal(str)
     importFile = Signal(str)
     syncFile = Signal(object)
@@ -337,6 +365,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._unlock_action = QAction(unlock_icon, 'Unlock', self._menu)
         self._upload_action = QAction(upload_icon, 'Upload New Version', self._menu)
         self._copy_path_action = QAction(copy_icon, 'Copy File Path', self._menu)
+        self._copy_artella_path_action = QAction(copy_icon, 'Copy Artella Path', self._menu)
         self._open_action = QAction(open_icon, 'Open File', self._menu)
         self._import_action = QAction(import_icon, 'Import File', self._menu)
 
@@ -350,6 +379,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._menu.addAction(self._upload_action)
         self._menu.addSeparator()
         self._menu.addAction(self._copy_path_action)
+        self._menu.addAction(self._copy_artella_path_action)
         self._menu.addSeparator()
         self._menu.addAction(self._open_action)
         self._menu.addAction(self._import_action)
@@ -358,6 +388,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._artella_action.triggered.connect(partial(self.SIGNALS.openArtellaItem.emit, self._path))
         self._view_locally_action.triggered.connect(partial(self.SIGNALS.viewLocallyItem.emit, self._path))
         self._copy_path_action.triggered.connect(partial(self.SIGNALS.copyFilePath.emit, self._path))
+        self._copy_artella_path_action.triggered.connect(partial(self.SIGNALS.copyArtellaFilePath.emit, self._path))
         self._open_action.triggered.connect(partial(self.SIGNALS.openFile.emit, self._path))
         self._import_action.triggered.connect(partial(self.SIGNALS.importFile.emit, self._path))
         self._sync_action.triggered.connect(partial(self.SIGNALS.syncFile.emit, self))
@@ -789,10 +820,23 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             self._get_files_worker.progressDone.connect(self._get_files_thread.quit)
             self._get_files_thread.start()
 
+    def _get_item_artella_url(self, item_path):
+        if not item_path:
+            return ''
+
+        if os.path.splitext(item_path)[-1]:
+            item_path = os.path.dirname(item_path)
+
+        relative_path = os.path.relpath(item_path, self._project.get_path())
+        artella_url = '{}/{}'.format(self._project.get_artella_url(), relative_path)
+
+        return artella_url
+
     def _setup_file_item_signals(self, item):
         item.SIGNALS.viewLocallyItem.connect(self._on_open_item_folder)
         item.SIGNALS.openArtellaItem.connect(self._on_open_item_in_artella)
         item.SIGNALS.copyFilePath.connect(self._on_copy_file_path)
+        item.SIGNALS.copyArtellaFilePath.connect(self._on_copy_artella_file_path)
         item.SIGNALS.openFile.connect(self._on_open_file)
         item.SIGNALS.importFile.connect(self._on_import_file)
         item.SIGNALS.lockFile.connect(self._on_lock_file)
@@ -964,11 +1008,13 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             self._files_list.addTopLevelItem(list_item)
 
     def _on_open_item_in_artella(self, item_path):
-        if os.path.splitext(item_path)[-1]:
-            item_path = os.path.dirname(item_path)
+        if not item_path:
+            return
 
-        relative_path = os.path.relpath(item_path, self._project.get_path())
-        artella_url = '{}/{}'.format(self._project.get_artella_url(), relative_path)
+        artella_url = self._get_item_artella_url(item_path)
+        if not artella_url:
+            return
+
         webbrowser.open(artella_url)
 
     def _on_open_item_folder(self, item_path):
@@ -1007,11 +1053,26 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _on_copy_file_path(self, item_path):
         if not item_path:
             return
+
         clipboard = QApplication.clipboard()
         clipboard.setText(item_path, QClipboard.Clipboard)
         if clipboard.supportsSelection():
             clipboard.setText(item_path, QClipboard.Selection)
         message.PopupMessage.success(text='File path copied to clipboard!.', parent=self)
+
+    def _on_copy_artella_file_path(self, item_path):
+        if not item_path:
+            return
+
+        artella_url = self._get_item_artella_url(item_path)
+        if not artella_url:
+            return
+
+        clipboard = QApplication.clipboard()
+        clipboard.setText(artella_url, QClipboard.Clipboard)
+        if clipboard.supportsSelection():
+            clipboard.setText(artella_url, QClipboard.Selection)
+        message.PopupMessage.success(text='File Artella path copied to clipboard!.', parent=self)
 
     def _on_unlock_file(self, item, refresh_toolbar=True):
         item_path = item.path
