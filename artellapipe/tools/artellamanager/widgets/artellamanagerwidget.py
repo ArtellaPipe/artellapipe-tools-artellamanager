@@ -51,13 +51,19 @@ class ArtellaManagerFolderView(QTreeView, object):
         model = ArtellaManagerFolderModel()
         self.setModel(model)
         model.startFetch.connect(self.startFetch.emit)
-        self.selectionModel().selectionChanged.connect(self.folderSelected.emit)
         project_path = self._project.get_path() if self._project else ''
         if project_path and not os.path.isdir(project_path):
             os.makedirs(project_path)
         model.setRootPath(project_path)
         new_root = model.index(project_path)
         self.setRootIndex(new_root)
+
+        # BUG: We store selection model in a member variable to hold its reference. Otherwise, in PySide the connection
+        # will crash Python
+        # https://stackoverflow.com/questions/19211430/pyside-segfault-when-using-qitemselectionmodel-with-qlistview
+        # https://www.qtcentre.org/threads/58874-QListView-SelectionModel-selectionChanged-Crash
+        self._selection_model = self.selectionModel()
+        self._selection_model.selectionChanged.connect(self.folderSelected.emit)
         self.hideColumn(1)
         self.hideColumn(2)
         self.hideColumn(3)
