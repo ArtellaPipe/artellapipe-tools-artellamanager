@@ -74,11 +74,13 @@ class ArtellaManagerFolderView(QTreeView, object):
         refresh_icon = tp.ResourcesMgr().icon('refresh')
         artella_icon = tp.ResourcesMgr().icon('artella')
         eye_icon = tp.ResourcesMgr().icon('eye')
+        copy_icon = tp.ResourcesMgr().icon('copy')
         sync_icon = tp.ResourcesMgr().icon('sync')
 
         refresh_action = QAction(refresh_icon, 'Refresh', menu)
         artella_action = QAction(artella_icon, 'Open in Artella', menu)
         view_locally_action = QAction(eye_icon, 'View Locally', menu)
+        copy_path_action = QAction(copy_icon, 'Copy Folder Path', menu)
         sync_action = QAction(sync_icon, 'Sync Recursive', menu)
 
         menu.addAction(refresh_action)
@@ -86,11 +88,14 @@ class ArtellaManagerFolderView(QTreeView, object):
         menu.addAction(artella_action)
         menu.addAction(view_locally_action)
         menu.addSeparator()
+        menu.addAction(copy_path_action)
+        menu.addSeparator()
         menu.addAction(sync_action)
 
         refresh_action.triggered.connect(partial(self.refreshSelectedFolder, item_path))
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
         artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
+        copy_path_action.triggered.connect(partial(self._on_copy_path, item_path))
         sync_action.triggered.connect(partial(self._on_sync_folder, item_path))
 
         return menu
@@ -117,6 +122,14 @@ class ArtellaManagerFolderView(QTreeView, object):
             fileio.open_browser(os.path.dirname(item_path))
         else:
             fileio.open_browser(item_path)
+
+    def _on_copy_path(self, item_path):
+        if not item_path:
+            return
+        clipboard = QApplication.clipboard()
+        clipboard.setText(item_path, QClipboard.Clipboard)
+        if clipboard.supportsSelection():
+            clipboard.setText(item_path, QClipboard.Selection)
 
     def _on_sync_folder(self, item_path):
         if not os.path.exists(item_path):
@@ -177,7 +190,9 @@ class ArtellaManagerFolderModel(QFileSystemModel, object):
 class ArtellaFileSignals(QObject, object):
     viewLocallyItem = Signal(str)
     openArtellaItem = Signal(str)
+    copyFilePath = Signal(str)
     openFile = Signal(str)
+    importFile = Signal(str)
     syncFile = Signal(object)
     lockFile = Signal(object)
     unlockFile = Signal(object)
@@ -260,6 +275,8 @@ class ArtellaFileItem(QTreeWidgetItem, object):
             self.clear()
             return
 
+        if not hasattr(status, 'references'):
+            return
         item_ref = status.references[status.references.keys()[0]]
         self._is_deleted = item_ref.deleted
         self._is_directory = item_ref.is_directory
@@ -309,7 +326,9 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         unlock_icon = tp.ResourcesMgr().icon('unlock')
         upload_icon = tp.ResourcesMgr().icon('upload')
         sync_icon = tp.ResourcesMgr().icon('sync')
+        copy_icon = tp.ResourcesMgr().icon('copy')
         open_icon = tp.ResourcesMgr().icon('open')
+        import_icon = tp.ResourcesMgr().icon('import')
 
         self._artella_action = QAction(artella_icon, 'Open in Artella', self._menu)
         self._view_locally_action = QAction(eye_icon, 'View Locally', self._menu)
@@ -317,7 +336,9 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._lock_action = QAction(lock_icon, 'Lock', self._menu)
         self._unlock_action = QAction(unlock_icon, 'Unlock', self._menu)
         self._upload_action = QAction(upload_icon, 'Upload New Version', self._menu)
+        self._copy_path_action = QAction(copy_icon, 'Copy File Path', self._menu)
         self._open_action = QAction(open_icon, 'Open File', self._menu)
+        self._import_action = QAction(import_icon, 'Import File', self._menu)
 
         self._menu.addAction(self._artella_action)
         self._menu.addAction(self._view_locally_action)
@@ -328,12 +349,17 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._menu.addAction(self._unlock_action)
         self._menu.addAction(self._upload_action)
         self._menu.addSeparator()
+        self._menu.addAction(self._copy_path_action)
+        self._menu.addSeparator()
         self._menu.addAction(self._open_action)
+        self._menu.addAction(self._import_action)
         self._menu.addSeparator()
 
         self._artella_action.triggered.connect(partial(self.SIGNALS.openArtellaItem.emit, self._path))
         self._view_locally_action.triggered.connect(partial(self.SIGNALS.viewLocallyItem.emit, self._path))
+        self._copy_path_action.triggered.connect(partial(self.SIGNALS.copyFilePath.emit, self._path))
         self._open_action.triggered.connect(partial(self.SIGNALS.openFile.emit, self._path))
+        self._import_action.triggered.connect(partial(self.SIGNALS.importFile.emit, self._path))
         self._sync_action.triggered.connect(partial(self.SIGNALS.syncFile.emit, self))
         self._lock_action.triggered.connect(partial(self.SIGNALS.lockFile.emit, self))
         self._unlock_action.triggered.connect(partial(self.SIGNALS.unlockFile.emit, self))
@@ -347,6 +373,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._sync_action.setEnabled(False)
         self._upload_action.setEnabled(False)
         self._open_action.setEnabled(False)
+        self._import_action.setEnabled(False)
 
     def _update_menu(self):
         self._disable_actions()
@@ -371,9 +398,13 @@ class ArtellaFileItem(QTreeWidgetItem, object):
             if os.path.splitext(item_path)[-1] in tp.Dcc.get_extensions():
                 self._open_action.setVisible(True)
                 self._open_action.setEnabled(True)
+                self._import_action.setVisible(True)
+                self._import_action.setEnabled(True)
             else:
                 self._open_action.setVisible(False)
                 self._open_action.setEnabled(False)
+                self._import_action.setVisible(False)
+                self._import_action.setEnabled(False)
 
             if not item_is_locked:
                 if server_version is not None:
@@ -761,7 +792,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _setup_file_item_signals(self, item):
         item.SIGNALS.viewLocallyItem.connect(self._on_open_item_folder)
         item.SIGNALS.openArtellaItem.connect(self._on_open_item_in_artella)
+        item.SIGNALS.copyFilePath.connect(self._on_copy_file_path)
         item.SIGNALS.openFile.connect(self._on_open_file)
+        item.SIGNALS.importFile.connect(self._on_import_file)
         item.SIGNALS.lockFile.connect(self._on_lock_file)
         item.SIGNALS.unlockFile.connect(self._on_unlock_file)
         item.SIGNALS.syncFile.connect(self._on_sync_file)
@@ -947,6 +980,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _on_open_file(self, item_path):
         return tp.Dcc.open_file(item_path)
 
+    def _on_import_file(self, item_path):
+        return tp.Dcc.import_file(item_path, force=True)
+
     def _on_lock_file(self, item, refresh_toolbar=True):
         item_path = item.path
         msg = message.PopupMessage.loading('Locking File', parent=self, closable=False)
@@ -967,6 +1003,15 @@ class ArtellaManagerWidget(base.BaseWidget, object):
 
         if refresh_toolbar:
             self._update_toolbar()
+
+    def _on_copy_file_path(self, item_path):
+        if not item_path:
+            return
+        clipboard = QApplication.clipboard()
+        clipboard.setText(item_path, QClipboard.Clipboard)
+        if clipboard.supportsSelection():
+            clipboard.setText(item_path, QClipboard.Selection)
+        message.PopupMessage.success(text='File path copied to clipboard!.', parent=self)
 
     def _on_unlock_file(self, item, refresh_toolbar=True):
         item_path = item.path
