@@ -22,7 +22,7 @@ from Qt.QtWidgets import *
 from Qt.QtGui import *
 
 import tpDcc as tp
-from tpDcc.libs.python import fileio, path as path_utils
+from tpDcc.libs.python import fileio, folder, path as path_utils
 from tpDcc.libs.qt.core import base, qtutils
 from tpDcc.libs.qt.widgets import stack, loading, dividers, buttons, message, lineedit, search, progressbar, toast
 
@@ -94,7 +94,7 @@ class ArtellaManagerFolderView(QTreeView, object):
         menu.addSeparator()
         menu.addAction(sync_action)
 
-        refresh_action.triggered.connect(partial(self.refreshSelectedFolder, item_path))
+        refresh_action.triggered.connect(partial(self._on_refresh_item, item_path))
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
         artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
         copy_path_action.triggered.connect(partial(self._on_copy_path, item_path))
@@ -115,7 +115,22 @@ class ArtellaManagerFolderView(QTreeView, object):
 
         return artella_url
 
-    def _on_refresh_item(self):
+    def _on_refresh_item(self, item_path):
+
+        status = artellalib.get_status(item_path)
+        if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
+            for ref_name, ref_data in status.references.items():
+                dir_path = ref_data.path
+                if os.path.isdir(dir_path) or os.path.splitext(dir_path)[-1]:
+                    continue
+                folder.create_folder(dir_path)
+        elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
+            working_folder = self._project.get_working_folder()
+            working_path = os.path.join(status.path, working_folder)
+            artella_data = artellalib.get_status(working_path)
+            if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
+                folder.create_folder(working_path)
+
         self.refreshSelectedFolder.emit(self.selectedIndexes())
 
     def _on_open_item_in_artella(self, item_path):
