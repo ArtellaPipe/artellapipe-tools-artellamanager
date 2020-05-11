@@ -181,7 +181,7 @@ class ArtellaManagerFolderView(QTreeView, object):
 
         message.PopupMessage.success('Folder recursively synced successfully!', parent=self)
 
-        self._on_refresh_item()
+        self._on_refresh_item(item_path)
 
     def _on_context_menu(self, pos):
         """
@@ -236,6 +236,8 @@ class ArtellaFileSignals(QObject, object):
     copyArtellaFilePath = Signal(str)
     openFile = Signal(str)
     importFile = Signal(str)
+    referenceFile = Signal(str)
+    getDepsFile = Signal(str)
     syncFile = Signal(object)
     lockFile = Signal(object)
     unlockFile = Signal(object)
@@ -372,6 +374,8 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         copy_icon = tp.ResourcesMgr().icon('copy')
         open_icon = tp.ResourcesMgr().icon('open')
         import_icon = tp.ResourcesMgr().icon('import')
+        reference_icon = tp.ResourcesMgr().icon('reference')
+        download_icon = tp.ResourcesMgr().icon('download')
 
         self._artella_action = QAction(artella_icon, 'Open in Artella', self._menu)
         self._view_locally_action = QAction(eye_icon, 'View Locally', self._menu)
@@ -383,6 +387,8 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._copy_artella_path_action = QAction(copy_icon, 'Copy Artella Path', self._menu)
         self._open_action = QAction(open_icon, 'Open File', self._menu)
         self._import_action = QAction(import_icon, 'Import File', self._menu)
+        self._reference_action = QAction(reference_icon, 'Reference File', self._menu)
+        self._get_dependencies_action = QAction(download_icon, 'Get Dependencies', self._menu)
 
         self._menu.addAction(self._artella_action)
         self._menu.addAction(self._view_locally_action)
@@ -398,6 +404,8 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._menu.addSeparator()
         self._menu.addAction(self._open_action)
         self._menu.addAction(self._import_action)
+        self._menu.addAction(self._reference_action)
+        self._menu.addAction(self._get_dependencies_action)
         self._menu.addSeparator()
 
         self._artella_action.triggered.connect(partial(self.SIGNALS.openArtellaItem.emit, self._path))
@@ -406,6 +414,8 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._copy_artella_path_action.triggered.connect(partial(self.SIGNALS.copyArtellaFilePath.emit, self._path))
         self._open_action.triggered.connect(partial(self.SIGNALS.openFile.emit, self._path))
         self._import_action.triggered.connect(partial(self.SIGNALS.importFile.emit, self._path))
+        self._reference_action.triggered.connect(partial(self.SIGNALS.referenceFile.emit, self._path))
+        self._get_dependencies_action.triggered.connect(partial(self.SIGNALS.getDepsFile.emit, self._path))
         self._sync_action.triggered.connect(partial(self.SIGNALS.syncFile.emit, self))
         self._lock_action.triggered.connect(partial(self.SIGNALS.lockFile.emit, self))
         self._unlock_action.triggered.connect(partial(self.SIGNALS.unlockFile.emit, self))
@@ -420,6 +430,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._upload_action.setEnabled(False)
         self._open_action.setEnabled(False)
         self._import_action.setEnabled(False)
+        self._get_dependencies_action.setEnabled(False)
 
     def _update_menu(self):
         self._disable_actions()
@@ -446,11 +457,13 @@ class ArtellaFileItem(QTreeWidgetItem, object):
                 self._open_action.setEnabled(True)
                 self._import_action.setVisible(True)
                 self._import_action.setEnabled(True)
+                self._get_dependencies_action.setEnabled(True)
             else:
                 self._open_action.setVisible(False)
                 self._open_action.setEnabled(False)
                 self._import_action.setVisible(False)
                 self._import_action.setEnabled(False)
+                self._get_dependencies_action.setEnabled(False)
 
             if not item_is_locked:
                 if server_version is not None:
@@ -854,6 +867,8 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         item.SIGNALS.copyArtellaFilePath.connect(self._on_copy_artella_file_path)
         item.SIGNALS.openFile.connect(self._on_open_file)
         item.SIGNALS.importFile.connect(self._on_import_file)
+        item.SIGNALS.referenceFile.connect(self._on_reference_file)
+        item.SIGNALS.getDepsFile.connect(self._on_get_dependencies_file)
         item.SIGNALS.lockFile.connect(self._on_lock_file)
         item.SIGNALS.unlockFile.connect(self._on_unlock_file)
         item.SIGNALS.syncFile.connect(self._on_sync_file)
@@ -1047,6 +1062,17 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         res = qtutils.show_question(self, 'Importing File', 'Are you sure you want to import the file?')
         if res == QMessageBox.StandardButton.Yes:
             return tp.Dcc.import_file(item_path, force=True)
+
+    def _on_reference_file(self, item_path):
+        res = qtutils.show_question(self, 'Referencing File', 'Are you sure you want to reference the file?')
+        if res == QMessageBox.StandardButton.Yes:
+            return tp.Dcc.reference_file(item_path, force=True)
+
+    def _on_get_dependencies_file(self, item_path):
+        res = qtutils.show_question(self, 'Get File Dependencies', 'Are you sure you want to get file dependencies?')
+        if res == QMessageBox.StandardButton.Yes:
+            artellapipe.ToolsMgr().run_tool(
+                'artellapipe-tools-dependenciesmanager', do_reload=True, debug=False, file_path=item_path)
 
     def _on_lock_file(self, item, refresh_toolbar=True):
         item_path = item.path
