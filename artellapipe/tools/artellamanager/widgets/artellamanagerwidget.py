@@ -121,7 +121,8 @@ class ArtellaManagerFolderView(QTreeView, object):
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
             for ref_name, ref_data in status.references.items():
                 dir_path = ref_data.path
-                if os.path.isdir(dir_path) or os.path.splitext(dir_path)[-1]:
+                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
+                        dir_path) or os.path.splitext(dir_path)[-1]:
                     continue
                 folder.create_folder(dir_path)
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
@@ -805,7 +806,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._files_list.setEnabled(flag)
         self._folders_view.setEnabled(flag)
 
-    def _update_selected_folder_files(self, status):
+    def _update_selected_folder_files(self, status, path):
         self._files_list.clear()
         self._stack.setCurrentIndex(0)
 
@@ -827,12 +828,16 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
             for ref_name, ref_data in status.references.items():
                 dir_path = ref_data.path
-                if os.path.isdir(dir_path) or not os.path.splitext(dir_path)[-1]:
+                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
+                        dir_path) or not os.path.splitext(dir_path)[-1]:
                     continue
                 all_files.append(dir_path)
+        else:
+            all_files.append(path)
+
         if not all_files:
             self._folders_view.setEnabled(True)
-            return
+            # return
 
         if not self._get_files_thread or not self._get_files_thread.isRunning():
             self._get_files_thread = QThread(self)
@@ -945,7 +950,8 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _on_get_folder_status(self):
         self._get_status_worker.moveToThread(QThread.currentThread())
         status = self._get_status_worker.status
-        self._update_selected_folder_files(status)
+        path = self._get_status_worker.path
+        self._update_selected_folder_files(status, path)
 
     def _on_check_finished(self):
         self._check_artella_worker.moveToThread(QThread.currentThread())
@@ -961,8 +967,10 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             self._get_files_thread.wait()
 
     def _on_get_folder_status_thread_finished(self):
-        if not self._get_folder_status_thread.isRunning():
-            self._get_folder_status_thread.wait()
+        pass
+        #
+        # if not self._get_folder_status_thread.isRunning():
+        #     self._get_folder_status_thread.wait()
 
     def _on_get_dirs_thread_finished(self):
         if not self._get_dirs_thread.isRunning():

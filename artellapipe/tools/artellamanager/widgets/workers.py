@@ -46,7 +46,8 @@ class GetArtellaDirsWorker(QObject, object):
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
             for ref_name, ref_data in status.references.items():
                 dir_path = ref_data.path
-                if os.path.isdir(dir_path) or os.path.splitext(dir_path)[-1]:
+                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
+                        dir_path) or os.path.splitext(dir_path)[-1]:
                     continue
                 folder.create_folder(dir_path)
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
@@ -72,6 +73,10 @@ class GetArtellaFolderStatusWorker(QObject, object):
     @property
     def status(self):
         return self._status
+
+    @property
+    def path(self):
+        return self._path
 
     def set_path(self, path):
         self._path = path
