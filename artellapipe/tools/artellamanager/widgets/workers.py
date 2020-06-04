@@ -11,161 +11,126 @@ import os
 
 from Qt.QtCore import *
 
-from tpDcc.libs.python import folder
+from tpDcc.libs.python import python
 
 from artellapipe.libs.artella.core import artellalib, artellaclasses
 
 
-class GetArtellaDirsWorker(QObject, object):
+class GetArtellaDirsWorkerSignals(QObject, object):
+    dirsUpdated = Signal(list)
+    publishedDirsUpdated = Signal(list)
 
-    dirsUpdated = Signal()
 
-    def __init__(self, project):
-        self._path = None
-        self._abort = False
+class GetArtellaDirsWorker(QRunnable, object):
+
+    def __init__(self, path, project):
+        self._path = path
         self._project = project
+        self.signals = GetArtellaDirsWorkerSignals()
         super(GetArtellaDirsWorker, self).__init__()
 
-    def set_path(self, path):
-        self._path = path
-
-    def abort(self):
-        self._abort = True
-
-    def process(self):
-        if not self._path:
-            return
-
-        self._abort = False
-
-        if self._abort or not self._project:
-            self.dirsUpdated.emit()
-            return
-
+    def run(self):
+        folders_found = list()
         status = artellalib.get_status(self._path)
+        is_asset = False
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
             for ref_name, ref_data in status.references.items():
                 dir_path = ref_data.path
                 if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
                         dir_path) or os.path.splitext(dir_path)[-1]:
                     continue
-                folder.create_folder(dir_path)
+                folders_found.append(dir_path)
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
             working_folder = self._project.get_working_folder()
             working_path = os.path.join(status.path, working_folder)
             artella_data = artellalib.get_status(working_path)
             if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
-                folder.create_folder(working_path)
+                folders_found.append(working_path)
+            is_asset = True
 
-        self.dirsUpdated.emit()
+        self.signals.dirsUpdated.emit(folders_found)
+
+        if is_asset:
+            published_folders_found = list()
+            published_versions = status.get_published_versions(force_update=True)
+            if published_versions:
+                for version_name, version_data_list in published_versions.items():
+                    for version_data in version_data_list:
+                        version_path = version_data[2]
+                        # No need to check path status because published versions function already does that
+                        published_folders_found.append(version_path)
+            self.signals.publishedDirsUpdated.emit(published_folders_found)
 
 
-class GetArtellaFolderStatusWorker(QObject, object):
+class GetArtellaFolderStatusWorkerSignals(QObject, object):
+    statusRetrieved = Signal(object, str)
 
-    finished = Signal()
 
-    def __init__(self):
-        self._path = None
-        self._abort = False
-        self._status = None
+class GetArtellaFolderStatusWorker(QRunnable, object):
+    def __init__(self, path):
+        self._path = path
+        self.signals = GetArtellaFolderStatusWorkerSignals()
         super(GetArtellaFolderStatusWorker, self).__init__()
 
-    @property
-    def status(self):
-        return self._status
-
-    @property
-    def path(self):
-        return self._path
-
-    def set_path(self, path):
-        self._path = path
-
-    def abort(self):
-        self._abort = True
-
-    def process(self):
+    def run(self):
         if not self._path:
             return
 
-        self._abort = False
-        self._status = None
-
-        if self._abort:
-            return
-
-        self._status = artellalib.get_status(self._path)
-        self.finished.emit()
+        status = artellalib.get_status(self._path)
+        self.signals.statusRetrieved.emit(status, self._path)
 
 
-class GetArtellaFilesWorker(QObject, object):
-
+class GetArtellaFilesWorkerSignals(QObject, object):
     progressStarted = Signal(int)
     progressTick = Signal(int, str, object)
     progressDone = Signal()
     progressAbort = Signal()
 
-    def __init__(self):
-        self._paths = None
+
+class GetArtellaFilesWorker(QRunnable, object):
+    def __init__(self, paths):
+        self._paths = python.force_list(paths)
         self._abort = False
-
+        self.signals = GetArtellaFilesWorkerSignals()
         super(GetArtellaFilesWorker, self).__init__()
-
-    def set_paths(self, paths):
-        self._paths = paths
 
     def abort(self):
         self._abort = True
 
-    def process(self):
+    def run(self):
         if not self._paths:
             return
 
         self._abort = False
-        self.progressStarted.emit(len(self._paths))
+        self.signals.progressStarted.emit(len(self._paths))
 
         if self._abort:
-            self.progressDone.emit()
+            self.signals.progressDone.emit()
             return
 
         for i, path in enumerate(self._paths):
             if self._abort:
-                self.progressAbort.emit()
+                self.signals.progressAbort.emit()
                 return
             status = artellalib.get_status(path)
-            self.progressTick.emit(i, path, status)
+            self.signals.progressTick.emit(i, path, status)
 
-        self.progressDone.emit()
+        self.signals.progressDone.emit()
 
 
-class ArtellaCheckWorker(QObject, object):
-
+class ArtellaCheckWorkerSignals(QObject, object):
     artellaAvailable = Signal(bool)
-    finished = Signal()
 
+
+class ArtellaCheckWorker(QRunnable, object):
     def __init__(self):
-        self._abort = False
-        self._metadata = None
-
         super(ArtellaCheckWorker, self).__init__()
 
-    @property
-    def metadata(self):
-        return self._metadata
+        self.signals = ArtellaCheckWorkerSignals()
 
-    def abort(self):
-        self._abort = True
-
-    def process(self):
-
-        self._abort = False
-        if self._abort:
-            self.finished.emit()
-
-        self._metadata = artellalib.get_metadata()
-        if self._metadata is not None:
-            self.artellaAvailable.emit(True)
+    def run(self):
+        metadata = artellalib.get_metadata()
+        if metadata is not None:
+            self.signals.artellaAvailable.emit(True)
         else:
-            self.artellaAvailable.emit(False)
-
-        self.finished.emit()
+            self.signals.artellaAvailable.emit(False)

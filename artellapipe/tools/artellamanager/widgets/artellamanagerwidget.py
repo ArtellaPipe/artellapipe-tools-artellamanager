@@ -13,530 +13,20 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
-import getpass
 import webbrowser
-from functools import partial
 
 from Qt.QtCore import *
 from Qt.QtWidgets import *
 from Qt.QtGui import *
 
 import tpDcc as tp
-from tpDcc.libs.python import fileio, folder, path as path_utils
+from tpDcc.libs.python import fileio, path as path_utils
 from tpDcc.libs.qt.core import base, qtutils
-from tpDcc.libs.qt.widgets import stack, loading, dividers, buttons, message, lineedit, search, progressbar, toast
+from tpDcc.libs.qt.widgets import stack, dividers, buttons, message, lineedit, search
 
 import artellapipe
 from artellapipe.libs.artella.core import artellalib, artellaclasses
-from artellapipe.tools.artellamanager.widgets import workers
-
-
-class ArtellaManagerFolderView(QTreeView, object):
-
-    folderSelected = Signal(object, object)
-    refreshSelectedFolder = Signal(list)
-    startFetch = Signal(str)
-
-    def __init__(self, parent=None):
-        super(ArtellaManagerFolderView, self).__init__(parent)
-
-        self._project = None
-
-        self.setAlternatingRowColors(True)
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self._on_context_menu)
-
-    def set_project(self, project):
-        self._project = project
-        model = ArtellaManagerFolderModel()
-        self.setModel(model)
-        model.startFetch.connect(self.startFetch.emit)
-        project_path = self._project.get_path() if self._project else ''
-        if project_path and not os.path.isdir(project_path):
-            os.makedirs(project_path)
-        model.setRootPath(project_path)
-        new_root = model.index(project_path)
-        self.setRootIndex(new_root)
-
-        # BUG: We store selection model in a member variable to hold its reference. Otherwise, in PySide the connection
-        # will crash Python
-        # https://stackoverflow.com/questions/19211430/pyside-segfault-when-using-qitemselectionmodel-with-qlistview
-        # https://www.qtcentre.org/threads/58874-QListView-SelectionModel-selectionChanged-Crash
-        self._selection_model = self.selectionModel()
-        self._selection_model.selectionChanged.connect(self.folderSelected.emit)
-        self.hideColumn(1)
-        self.hideColumn(2)
-        self.hideColumn(3)
-
-    def _create_menu(self, item_path):
-        menu = QMenu(self)
-
-        refresh_icon = tp.ResourcesMgr().icon('refresh')
-        artella_icon = tp.ResourcesMgr().icon('artella')
-        eye_icon = tp.ResourcesMgr().icon('eye')
-        copy_icon = tp.ResourcesMgr().icon('copy')
-        sync_icon = tp.ResourcesMgr().icon('sync')
-
-        refresh_action = QAction(refresh_icon, 'Refresh', menu)
-        artella_action = QAction(artella_icon, 'Open in Artella', menu)
-        view_locally_action = QAction(eye_icon, 'View Locally', menu)
-        copy_path_action = QAction(copy_icon, 'Copy Folder Path', menu)
-        copy_artella_path_action = QAction(copy_icon, 'Copy Artella Folder Path', menu)
-        sync_action = QAction(sync_icon, 'Sync Recursive', menu)
-
-        menu.addAction(refresh_action)
-        menu.addSeparator()
-        menu.addAction(artella_action)
-        menu.addAction(view_locally_action)
-        menu.addSeparator()
-        menu.addAction(copy_path_action)
-        menu.addAction(copy_artella_path_action)
-        menu.addSeparator()
-        menu.addAction(sync_action)
-
-        refresh_action.triggered.connect(partial(self._on_refresh_item, item_path))
-        view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
-        artella_action.triggered.connect(partial(self._on_open_item_in_artella, item_path))
-        copy_path_action.triggered.connect(partial(self._on_copy_path, item_path))
-        copy_artella_path_action.triggered.connect(partial(self._on_copy_artella_path, item_path))
-        sync_action.triggered.connect(partial(self._on_sync_folder, item_path))
-
-        return menu
-
-    def _get_folder_artella_url(self, item_path):
-        if not os.path.exists(item_path):
-            return
-
-        if os.path.isfile(item_path):
-            item_path = os.path.dirname(item_path)
-
-        relative_path = os.path.relpath(item_path, self._project.get_path())
-        artella_url = '{}/{}'.format(self._project.get_artella_url(), relative_path)
-
-        return artella_url
-
-    def _on_refresh_item(self, item_path):
-
-        status = artellalib.get_status(item_path)
-        if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
-            for ref_name, ref_data in status.references.items():
-                dir_path = ref_data.path
-                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
-                        dir_path) or os.path.splitext(dir_path)[-1]:
-                    continue
-                folder.create_folder(dir_path)
-        elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
-            working_folder = self._project.get_working_folder()
-            working_path = os.path.join(status.path, working_folder)
-            artella_data = artellalib.get_status(working_path)
-            if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
-                folder.create_folder(working_path)
-
-        self.refreshSelectedFolder.emit(self.selectedIndexes())
-
-    def _on_open_item_in_artella(self, item_path):
-        if not item_path:
-            return
-
-        artella_url = self._get_folder_artella_url(item_path)
-        if not artella_url:
-            return
-
-        webbrowser.open(artella_url)
-
-    def _on_open_item_folder(self, item_path):
-        if not os.path.exists(item_path):
-            return
-
-        if os.path.isfile(item_path):
-            fileio.open_browser(os.path.dirname(item_path))
-        else:
-            fileio.open_browser(item_path)
-
-    def _on_copy_path(self, item_path):
-        if not item_path:
-            return
-        clipboard = QApplication.clipboard()
-        clipboard.setText(item_path, QClipboard.Clipboard)
-        if clipboard.supportsSelection():
-            clipboard.setText(item_path, QClipboard.Selection)
-
-    def _on_copy_artella_path(self, item_path):
-        if not item_path:
-            return
-
-        artella_url = self._get_folder_artella_url(item_path)
-        if not artella_url:
-            return
-
-        clipboard = QApplication.clipboard()
-        clipboard.setText(artella_url, QClipboard.Clipboard)
-        if clipboard.supportsSelection():
-            clipboard.setText(artella_url, QClipboard.Selection)
-
-    def _on_sync_folder(self, item_path):
-        if not os.path.exists(item_path):
-            return
-
-        artellapipe.FilesMgr().sync_paths(item_path, recursive=True)
-
-        message.PopupMessage.success('Folder recursively synced successfully!', parent=self)
-
-        self._on_refresh_item(item_path)
-
-    def _on_context_menu(self, pos):
-        """
-        Internal callback function that is called when the user wants to show tree context menu
-        """
-
-        menu = None
-        index = self.indexAt(pos)
-        if index and index.isValid():
-            item_path = self.model().filePath(index)
-            menu = self._create_menu(item_path)
-
-        if menu:
-            menu.exec_(self.mapToGlobal(pos))
-
-
-class ArtellaManagerFolderModel(QFileSystemModel, object):
-
-    startFetch = Signal(str)
-
-    def __init__(self):
-        super(ArtellaManagerFolderModel, self).__init__()
-
-        self.setFilter(QDir.Dirs | QDir.NoDotAndDotDot)
-        self.setNameFilterDisables(False)
-
-        self._paths_cache = list()
-
-    def canFetchMore(self, index):
-        if index in self._paths_cache:
-            return False
-        self._paths_cache.append(index)
-
-        return True
-
-    def fetchMore(self, index):
-
-        item_path = self.filePath(index)
-        if item_path in self._paths_cache:
-            return super(ArtellaManagerFolderModel, self).fetchMore(index)
-
-        self._paths_cache.append(item_path)
-        self.startFetch.emit(item_path)
-
-        return super(ArtellaManagerFolderModel, self).fetchMore(index)
-
-
-class ArtellaFileSignals(QObject, object):
-    viewLocallyItem = Signal(str)
-    openArtellaItem = Signal(str)
-    copyFilePath = Signal(str)
-    copyArtellaFilePath = Signal(str)
-    openFile = Signal(str)
-    importFile = Signal(str)
-    referenceFile = Signal(str)
-    getDepsFile = Signal(str)
-    syncFile = Signal(object)
-    lockFile = Signal(object)
-    unlockFile = Signal(object)
-    uploadFile = Signal(object)
-
-
-class ArtellaFileItem(QTreeWidgetItem, object):
-    def __init__(self, path, status=None, metadata=None):
-        super(ArtellaFileItem, self).__init__()
-        self.SIGNALS = ArtellaFileSignals()
-        self._metadata = metadata
-        self._is_locked = False
-        self._locked_by = ''
-        self._is_deleted = False
-        self._is_directory = False
-        self._locked_by_user = False
-        self._local_version = None
-        self._server_version = None
-        self._path = path
-        self._menu = None
-
-        if status:
-            self.refresh(status)
-        else:
-            self.clear()
-
-        self._create_menu()
-
-    @property
-    def file_name(self):
-        return self.text(0)
-
-    @property
-    def path(self):
-        return self.data(0, Qt.UserRole)
-
-    @property
-    def is_deleted(self):
-        return self._is_deleted
-
-    @property
-    def is_directory(self):
-        return self._is_directory
-
-    @property
-    def is_locked(self):
-        return self._is_locked
-
-    @is_locked.setter
-    def is_locked(self, flag):
-        self._is_locked = flag
-        self.setText(1, str(self._is_locked))
-
-    @property
-    def locked_by_user(self):
-        return self._locked_by_user
-
-    @property
-    def can_be_updated(self):
-        if self._server_version is None:
-            return False
-
-        if not os.path.isfile(self.path) or self._local_version != self._server_version:
-            return True
-
-        return False
-
-    @property
-    def local_version(self):
-        return self._local_version
-
-    @property
-    def server_version(self):
-        return self._server_version
-
-    def refresh(self, status=None):
-        if not status and self._path:
-            status = artellalib.get_status(self._path)
-        if not status:
-            self.clear()
-            return
-
-        if not hasattr(status, 'references'):
-            return
-        item_ref = status.references[status.references.keys()[0]]
-        self._is_deleted = item_ref.deleted
-        self._is_directory = item_ref.is_directory
-        if self._is_deleted or self._is_directory:
-            return
-        self._local_version = item_ref.view_version
-        if self._local_version and not os.path.isfile(self._path):
-            self._local_version = None
-        self._server_version = item_ref.maximum_version
-        self._is_locked = item_ref.locked
-        self._locked_by_user = False
-        if self._is_locked:
-            locked_view = item_ref.locked_view
-            self._locked_by_user = locked_view == self._metadata.storage_id
-        self._locked_by = getpass.getuser() if self._locked_by_user else 'Other User' if self._is_locked else ''
-        file_name = os.path.basename(self._path)
-        self.setText(0, file_name)
-        self.setIcon(0, tp.ResourcesMgr().icon_from_filename(self._path))
-        self.setText(1, str(self._is_locked))
-        self.setText(2, self._locked_by)
-        self.setText(3, str(fileio.get_file_size(self._path)) if self._local_version is not None else '')
-        self.setText(4, str(self._local_version) if self._local_version is not None else '')
-        self.setText(5, str(self._server_version))
-        self.setData(0, Qt.UserRole, self._path)
-
-    def clear(self):
-        file_name = os.path.basename(self._path) if self._path else ''
-        self.setText(0, file_name)
-        self.setIcon(0, tp.ResourcesMgr().icon_from_filename(self._path) if self._path else QIcon())
-        self.setText(1, 'False')
-        self.setText(2, '')
-        self.setText(3, '')
-        self.setText(4, '')
-        self.setText(5, '')
-        self.setData(0, Qt.UserRole, self._path if self._path else '')
-
-    def get_menu(self):
-        self._update_menu()
-        return self._menu
-
-    def _create_menu(self):
-        self._menu = QMenu()
-
-        artella_icon = tp.ResourcesMgr().icon('artella')
-        eye_icon = tp.ResourcesMgr().icon('eye')
-        lock_icon = tp.ResourcesMgr().icon('lock')
-        unlock_icon = tp.ResourcesMgr().icon('unlock')
-        upload_icon = tp.ResourcesMgr().icon('upload')
-        sync_icon = tp.ResourcesMgr().icon('sync')
-        copy_icon = tp.ResourcesMgr().icon('copy')
-        open_icon = tp.ResourcesMgr().icon('open')
-        import_icon = tp.ResourcesMgr().icon('import')
-        reference_icon = tp.ResourcesMgr().icon('reference')
-        download_icon = tp.ResourcesMgr().icon('download')
-
-        self._artella_action = QAction(artella_icon, 'Open in Artella', self._menu)
-        self._view_locally_action = QAction(eye_icon, 'View Locally', self._menu)
-        self._sync_action = QAction(sync_icon, 'Sync', self._menu)
-        self._lock_action = QAction(lock_icon, 'Lock', self._menu)
-        self._unlock_action = QAction(unlock_icon, 'Unlock', self._menu)
-        self._upload_action = QAction(upload_icon, 'Upload New Version', self._menu)
-        self._copy_path_action = QAction(copy_icon, 'Copy File Path', self._menu)
-        self._copy_artella_path_action = QAction(copy_icon, 'Copy Artella Path', self._menu)
-        self._open_action = QAction(open_icon, 'Open File', self._menu)
-        self._import_action = QAction(import_icon, 'Import File', self._menu)
-        self._reference_action = QAction(reference_icon, 'Reference File', self._menu)
-        self._get_dependencies_action = QAction(download_icon, 'Get Dependencies', self._menu)
-
-        self._menu.addAction(self._artella_action)
-        self._menu.addAction(self._view_locally_action)
-        self._menu.addSeparator()
-        self._menu.addAction(self._sync_action)
-        self._menu.addSeparator()
-        self._menu.addAction(self._lock_action)
-        self._menu.addAction(self._unlock_action)
-        self._menu.addAction(self._upload_action)
-        self._menu.addSeparator()
-        self._menu.addAction(self._copy_path_action)
-        self._menu.addAction(self._copy_artella_path_action)
-        self._menu.addSeparator()
-        self._menu.addAction(self._open_action)
-        self._menu.addAction(self._import_action)
-        self._menu.addAction(self._reference_action)
-        self._menu.addAction(self._get_dependencies_action)
-        self._menu.addSeparator()
-
-        self._artella_action.triggered.connect(partial(self.SIGNALS.openArtellaItem.emit, self._path))
-        self._view_locally_action.triggered.connect(partial(self.SIGNALS.viewLocallyItem.emit, self._path))
-        self._copy_path_action.triggered.connect(partial(self.SIGNALS.copyFilePath.emit, self._path))
-        self._copy_artella_path_action.triggered.connect(partial(self.SIGNALS.copyArtellaFilePath.emit, self._path))
-        self._open_action.triggered.connect(partial(self.SIGNALS.openFile.emit, self._path))
-        self._import_action.triggered.connect(partial(self.SIGNALS.importFile.emit, self._path))
-        self._reference_action.triggered.connect(partial(self.SIGNALS.referenceFile.emit, self._path))
-        self._get_dependencies_action.triggered.connect(partial(self.SIGNALS.getDepsFile.emit, self._path))
-        self._sync_action.triggered.connect(partial(self.SIGNALS.syncFile.emit, self))
-        self._lock_action.triggered.connect(partial(self.SIGNALS.lockFile.emit, self))
-        self._unlock_action.triggered.connect(partial(self.SIGNALS.unlockFile.emit, self))
-        self._upload_action.triggered.connect(partial(self.SIGNALS.uploadFile.emit, self))
-
-        self._update_menu()
-
-    def _disable_actions(self):
-        self._lock_action.setEnabled(False)
-        self._unlock_action.setEnabled(False)
-        self._sync_action.setEnabled(False)
-        self._upload_action.setEnabled(False)
-        self._open_action.setEnabled(False)
-        self._import_action.setEnabled(False)
-        self._get_dependencies_action.setEnabled(False)
-
-    def _update_menu(self):
-        self._disable_actions()
-
-        item_path = self.path
-        self._sync_action.setEnabled(self.can_be_updated)
-        server_version = self.server_version
-        if server_version is None:
-            self._upload_action.setEnabled(True)
-            self._lock_action.setEnabled(False)
-            self._unlock_action.setEnabled(False)
-        file_paths_exists = os.path.isfile(item_path) if item_path else False
-        item_is_locked = self.is_locked
-        locked_by_user = self.locked_by_user
-
-        if not file_paths_exists:
-            self._lock_action.setEnabled(False)
-            self._unlock_action.setEnabled(False)
-            self._upload_action.setEnabled(False)
-            self._open_action.setEnabled(False)
-        else:
-            if os.path.splitext(item_path)[-1] in tp.Dcc.get_extensions():
-                self._open_action.setVisible(True)
-                self._open_action.setEnabled(True)
-                self._import_action.setVisible(True)
-                self._import_action.setEnabled(True)
-                self._get_dependencies_action.setEnabled(True)
-            else:
-                self._open_action.setVisible(False)
-                self._open_action.setEnabled(False)
-                self._import_action.setVisible(False)
-                self._import_action.setEnabled(False)
-                self._get_dependencies_action.setEnabled(False)
-
-            if not item_is_locked:
-                if server_version is not None:
-                    self._lock_action.setEnabled(True)
-                self._unlock_action.setEnabled(False)
-            else:
-                self._lock_action.setEnabled(False)
-                if locked_by_user:
-                    self._unlock_action.setEnabled(True)
-                    self._upload_action.setEnabled(True)
-                else:
-                    self._unlock_action.setEnabled(False)
-                    self._upload_action.setEnabled(False)
-
-
-class ArtellaFilesTree(QTreeWidget, object):
-    def __init__(self, project, parent=None):
-        self._project = project
-
-        super(ArtellaFilesTree, self).__init__(parent)
-
-        self.setHeaderLabels(['Name', 'Locked', 'Locked By', 'Size (Mb)', 'Local Version', 'Server Version'])
-        self.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self._on_context_menu)
-        self.setAlternatingRowColors(True)
-        self.setSelectionMode(self.ExtendedSelection)
-
-    def mousePressEvent(self, event):
-        item = self.itemAt(event.pos())
-        if not item:
-            self.clearSelection()
-        super(ArtellaFilesTree, self).mousePressEvent(event)
-
-    def unhide_items(self):
-        """
-        Unhide all tree items
-        """
-
-        for i in range(self.topLevelItemCount()):
-            item = self.topLevelItem(i)
-            self.setItemHidden(item, False)
-
-    def filter_names(self, filter_text):
-        """
-        Hides all tree items with the given text
-        :param filter_text: str, text used to filter tree items
-        """
-
-        self.unhide_items()
-
-        for i in range(self.topLevelItemCount()):
-            item = self.topLevelItem(i)
-            text = str(item.text(0))
-            filter_text = str(filter_text)
-
-            # If the filter text is not found on the item text, we hide the item
-            if text.find(filter_text) == -1:
-                self.setItemHidden(item, True)
-
-    def _on_context_menu(self, pos):
-        """
-        Internal callback function that is called when the user wants to show tree context menu
-        """
-
-        menu = None
-
-        item = self.itemAt(pos)
-        if item:
-            menu = item.get_menu()
-
-        if menu:
-            menu.exec_(self.mapToGlobal(pos))
+from artellapipe.tools.artellamanager.widgets import workers, folderstree, filestree, loading
 
 
 class ArtellaManagerWidget(base.BaseWidget, object):
@@ -551,12 +41,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
 
         self.METADATA = None
 
-        self._check_artella_thread = None
-        self._get_dirs_thread = None
-        self._get_folder_status_thread = None
-        self._get_files_thread = None
-
         super(ArtellaManagerWidget, self).__init__(parent=parent)
+
+        self._thread_pool = QThreadPool()
 
         self._artella_timer = QTimer(self)
         self._artella_timer.setInterval(6000)
@@ -622,15 +109,14 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         folders_layout.setSpacing(2)
         folders_widget.setLayout(folders_layout)
         self._folders_search = search.SearchFindWidget()
-        self._folders_view = ArtellaManagerFolderView()
-        self._folders_view.set_project(self._project)
+        self._folders_view = folderstree.ArtellaManagerFolderView()
         folders_layout.addWidget(self._folders_search)
         folders_layout.addWidget(dividers.Divider())
         folders_layout.addWidget(self._folders_view)
 
         self._stack = stack.SlidingOpacityStackedWidget()
 
-        self._loading_widget = FilesLoadingWidget()
+        self._loading_widget = loading.FilesLoadingWidget()
 
         files_widget = QWidget()
         files_layout = QVBoxLayout()
@@ -638,7 +124,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         files_layout.setSpacing(2)
         files_widget.setLayout(files_layout)
         self._files_search = search.SearchFindWidget()
-        self._files_list = ArtellaFilesTree(self._project)
+        self._files_list = filestree.ArtellaFilesTree(self._project)
         files_layout.addWidget(self._files_search)
         files_layout.addWidget(dividers.Divider())
         files_layout.addWidget(self._files_list)
@@ -646,20 +132,10 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._stack.addWidget(files_widget)
         self._stack.addWidget(self._loading_widget)
 
-        self._lock_btn.setEnabled(False)
-        self._unlock_btn.setEnabled(False)
-        self._sync_btn.setEnabled(False)
-        self._upload_btn.setEnabled(False)
-        self._refresh_btn.setEnabled(False)
-        self._path_line.setEnabled(False)
-        self._files_list.setEnabled(False)
-        self._folders_view.setEnabled(False)
-
         splitter.addWidget(folders_widget)
         splitter.addWidget(self._stack)
 
     def setup_signals(self):
-        self._folders_view.startFetch.connect(self._on_start_fetch)
         self._folders_view.folderSelected.connect(self._on_folder_selected)
         self._folders_search.textChanged.connect(self._on_folder_search_text_changed)
         self._files_search.textChanged.connect(self._on_files_search_text_changed)
@@ -673,14 +149,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._upload_btn.clicked.connect(self._on_upload_selected_files)
 
     def closeEvent(self, event):
-        if self._check_artella_thread:
-            self._check_artella_thread.deleteLater()
-        if self._get_files_thread:
-            self._get_files_thread.deleteLater()
-        if self._get_folder_status_thread:
-            self._get_folder_status_thread.deleteLater()
-        if self._get_dirs_thread:
-            self._get_dirs_thread.deleteLater()
+        self._artella_timer.stop()
+        self._folders_view.cleanup()
+        self._thread_pool.waitForDone(1000)
         super(ArtellaManagerWidget, self).closeEvent(event)
 
     def _update_toolbar(self):
@@ -804,54 +275,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._path_line.setEnabled(flag)
         self._files_list.clear()
         self._files_list.setEnabled(flag)
+        self._files_search.setEnabled(flag)
+        self._folders_search.setEnabled(flag)
         self._folders_view.setEnabled(flag)
-
-    def _update_selected_folder_files(self, status, path):
-        self._files_list.clear()
-        self._stack.setCurrentIndex(0)
-
-        if self._get_files_thread and self._get_files_thread.isRunning():
-            self._get_files_thread.wait()
-
-        if not status:
-            self._folders_view.setEnabled(True)
-            message.PopupMessage.error(
-                text='Impossible to retrieve data from Artella. Maybe Artella is down.',
-                duration=5,
-                parent=self)
-            self.METADATA = artellalib.get_metadata()
-            if not self.METADATA:
-                self._artella_not_available()
-            return
-
-        all_files = list()
-        if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
-            for ref_name, ref_data in status.references.items():
-                dir_path = ref_data.path
-                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
-                        dir_path) or not os.path.splitext(dir_path)[-1]:
-                    continue
-                all_files.append(dir_path)
-        else:
-            all_files.append(path)
-
-        if not all_files:
-            self._folders_view.setEnabled(True)
-            # return
-
-        if not self._get_files_thread or not self._get_files_thread.isRunning():
-            self._get_files_thread = QThread(self)
-            self._get_files_worker = workers.GetArtellaFilesWorker()
-            self._get_files_worker.set_paths(all_files)
-            self._get_files_worker.moveToThread(self._get_files_thread)
-            self._get_files_thread.started.connect(self._get_files_worker.process)
-            self._get_files_thread.finished.connect(self._on_get_files_thread_finished)
-            self._get_files_worker.progressStarted.connect(self._on_start_find_files)
-            self._get_files_worker.progressTick.connect(self._on_update_find_files)
-            self._get_files_worker.progressAbort.connect(self._on_abort_find_files)
-            self._get_files_worker.progressDone.connect(self._on_done_find_files)
-            self._get_files_worker.progressDone.connect(self._get_files_thread.quit)
-            self._get_files_thread.start()
 
     def _get_item_artella_url(self, item_path):
         if not item_path:
@@ -895,9 +321,6 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._folders_view.setEnabled(True)
 
     def _on_refresh_selected_folder(self, selected_indexes=None):
-        if self._get_folder_status_thread and self._get_folder_status_thread.isRunning():
-            return
-
         if not selected_indexes:
             selected_indexes = self._folders_view.selectedIndexes()
         if not selected_indexes:
@@ -909,16 +332,10 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             if model:
                 item_path = model.filePath(selected_indexes[0])
                 self._path_line.setText(item_path)
-                if not self._get_folder_status_thread or not self._get_folder_status_thread.isRunning():
-                    self._get_folder_status_thread = QThread(self)
-                    self._get_status_worker = workers.GetArtellaFolderStatusWorker()
-                    self._get_status_worker.set_path(item_path)
-                    self._get_status_worker.moveToThread(self._get_folder_status_thread)
-                    self._get_folder_status_thread.started.connect(self._get_status_worker.process)
-                    self._get_folder_status_thread.finished.connect(self._on_get_folder_status_thread_finished)
-                    self._get_status_worker.finished.connect(self._get_folder_status_thread.quit)
-                    self._get_status_worker.finished.connect(self._on_get_folder_status)
-                    self._get_folder_status_thread.start()
+
+                folder_status_worker = workers.GetArtellaFolderStatusWorker(item_path)
+                folder_status_worker.signals.statusRetrieved.connect(self._on_get_folder_status)
+                self._thread_pool.start(folder_status_worker)
 
     def _on_item_file_selected(self):
         self._reset_toolbar()
@@ -931,66 +348,56 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             else:
                 self._path_line.setText('...')
 
-    def _on_start_fetch(self, item_path):
-        if not self._get_dirs_thread or not self._get_dirs_thread.isRunning():
-            self._get_dirs_thread = QThread(self)
-            self._get_dirs_worker = workers.GetArtellaDirsWorker(project=self._project)
-            self._get_dirs_worker.set_path(item_path)
-            self._get_dirs_worker.moveToThread(self._get_dirs_thread)
-            self._get_dirs_thread.started.connect(self._get_dirs_worker.process)
-            self._get_dirs_thread.finished.connect(self._on_get_dirs_thread_finished)
-            self._get_dirs_worker.dirsUpdated.connect(self._get_dirs_thread.quit)
-            self._get_dirs_thread.start()
-
     def _on_folder_selected(self, selected, *args):
         selected_indexes = selected.indexes()
         self._folders_view.setEnabled(False)
         self._on_refresh_selected_folder(selected_indexes)
 
-    def _on_get_folder_status(self):
-        self._get_status_worker.moveToThread(QThread.currentThread())
-        status = self._get_status_worker.status
-        path = self._get_status_worker.path
-        self._update_selected_folder_files(status, path)
+    def _on_get_folder_status(self, status, path):
+        self._files_list.clear()
+        self._stack.setCurrentIndex(0)
+
+        if not status:
+            self._folders_view.setEnabled(True)
+            message.PopupMessage.error(
+                text='Impossible to retrieve data from Artella. Maybe Artella is down.',
+                duration=5,
+                parent=self)
+            self.METADATA = artellalib.get_metadata()
+            if not self.METADATA:
+                self._artella_not_available()
+            return
+
+        all_files = list()
+        if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
+            for ref_name, ref_data in status.references.items():
+                dir_path = ref_data.path
+                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
+                        dir_path) or not os.path.splitext(dir_path)[-1]:
+                    continue
+                all_files.append(dir_path)
+        else:
+            all_files.append(path)
+
+        if not all_files:
+            self._folders_view.setEnabled(True)
+
+        artella_files_worker = workers.GetArtellaFilesWorker(all_files)
+        artella_files_worker.signals.progressStarted.connect(self._on_start_find_files)
+        artella_files_worker.signals.progressTick.connect(self._on_update_find_files)
+        artella_files_worker.signals.progressAbort.connect(self._on_abort_find_files)
+        artella_files_worker.signals.progressDone.connect(self._on_done_find_files)
+        self._thread_pool.start(artella_files_worker)
 
     def _on_check_finished(self):
         self._check_artella_worker.moveToThread(QThread.currentThread())
         self.METADATA = self._check_artella_worker._metadata
         self._check_artella_worker.deleteLater()
 
-    def _on_check_thread_finished(self):
-        if not self._check_artella_thread.isRunning():
-            self._check_artella_thread.wait()
-
-    def _on_get_files_thread_finished(self):
-        if not self._get_files_thread.isRunning():
-            self._get_files_thread.wait()
-
-    def _on_get_folder_status_thread_finished(self):
-        pass
-        #
-        # if not self._get_folder_status_thread.isRunning():
-        #     self._get_folder_status_thread.wait()
-
-    def _on_get_dirs_thread_finished(self):
-        if not self._get_dirs_thread.isRunning():
-            self._get_dirs_thread.wait()
-
     def _on_update_metadata(self):
-        if not self._check_artella_thread or not self._check_artella_thread.isRunning():
-            self._update_metadata()
-
-    def _update_metadata(self):
-        if not self._check_artella_thread or not self._check_artella_thread.isRunning():
-            self._check_artella_thread = QThread(self)
-            self._check_artella_worker = workers.ArtellaCheckWorker()
-            self._check_artella_worker.moveToThread(self._check_artella_thread)
-            self._check_artella_thread.started.connect(self._check_artella_worker.process)
-            self._check_artella_thread.finished.connect(self._on_check_thread_finished)
-            self._check_artella_worker.finished.connect(self._check_artella_thread.quit)
-            self._check_artella_worker.finished.connect(self._on_check_finished)
-            self._check_artella_worker.artellaAvailable.connect(self._on_artella_checked)
-            self._check_artella_thread.start()
+        artella_check_worker = workers.ArtellaCheckWorker()
+        artella_check_worker.signals.artellaAvailable.connect(self._on_artella_checked)
+        self._thread_pool.start(artella_check_worker)
 
     def _on_artella_checked(self, flag):
         if flag:
@@ -1021,7 +428,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                         continue
                 if folder_files_dict:
                     for folder_file_name, folder_file_path in folder_files_dict.items():
-                        list_item = ArtellaFileItem(path=folder_file_path)
+                        list_item = filestree.ArtellaFileItem(path=folder_file_path)
                         if list_item.is_directory or list_item.is_deleted:
                             continue
                         self._setup_file_item_signals(list_item)
@@ -1039,7 +446,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _on_update_find_files(self, index, path, status):
         self._loading_widget.set_value(index, path)
         if status:
-            list_item = ArtellaFileItem(path=path, status=status, metadata=self.METADATA)
+            list_item = filestree.ArtellaFileItem(path=path, status=status, metadata=self.METADATA)
             if list_item.is_directory or list_item.is_deleted:
                 return
             self._setup_file_item_signals(list_item)
@@ -1214,56 +621,3 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             self._on_upload_file(item, refresh_toolbar=False)
 
         self._update_toolbar()
-
-
-class FilesLoadingWidget(base.BaseWidget, object):
-
-    cancelLoad = Signal()
-
-    def __init__(self, parent=None):
-        super(FilesLoadingWidget, self).__init__(parent)
-
-    def ui(self):
-        super(FilesLoadingWidget, self).ui()
-
-        self._cancel_btn = buttons.BaseToolButton().image('delete').icon_only()
-        circle_layout = QHBoxLayout()
-        circle_layout.setSpacing(2)
-        circle_layout.setContentsMargins(2, 2, 2, 2)
-        loading_circle = loading.CircleLoading(size=100)
-        circle_layout.addStretch()
-        circle_layout.addWidget(loading_circle)
-        circle_layout.addStretch()
-        self._progress_bar = progressbar.BaseProgressBar()
-        self._progress_bar.setTextVisible(True)
-        self._progress_bar.setVisible(False)
-
-        btn_lyt = QHBoxLayout()
-        btn_lyt.setContentsMargins(0, 0, 0, 0)
-        btn_lyt.setSpacing(0)
-        btn_lyt.addStretch()
-        btn_lyt.addWidget(self._cancel_btn)
-        self.main_layout.addLayout(btn_lyt)
-        self.main_layout.addStretch()
-        self.main_layout.addLayout(circle_layout)
-        self.main_layout.addWidget(self._progress_bar)
-        self.main_layout.addStretch()
-
-    def setup_signals(self):
-        self._cancel_btn.clicked.connect(self.cancelLoad.emit)
-
-    def set_total_files(self, total_files):
-        self._progress_bar.setMinimum(0)
-        self._progress_bar.setMaximum(total_files)
-        self._progress_bar.setValue(0)
-
-    def set_value(self, index, path):
-        self._progress_bar.setVisible(True)
-        self._progress_bar.setValue(index + 1)
-        self._progress_bar.setFormat(path)
-
-    def reset(self):
-        self._progress_bar.reset()
-        self._progress_bar.setValue(0)
-        self._progress_bar.setFormat('')
-        self._progress_bar.setVisible(False)
