@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.loading module
+=======================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.loading
+   :members:
+   :undoc-members:
+   :show-inheritance:

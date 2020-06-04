@@ -9,6 +9,9 @@ Submodules
 
    artellapipe.tools.artellamanager.widgets.artellamanagertool
    artellapipe.tools.artellamanager.widgets.artellamanagerwidget
+   artellapipe.tools.artellamanager.widgets.filestree
+   artellapipe.tools.artellamanager.widgets.folderstree
+   artellapipe.tools.artellamanager.widgets.loading
    artellapipe.tools.artellamanager.widgets.workers
 
 Module contents

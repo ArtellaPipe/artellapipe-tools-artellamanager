@@ -1,0 +1,7 @@
+artellapipe.tools.artellamanager.widgets.filestree module
+=========================================================
+
+.. automodule:: artellapipe.tools.artellamanager.widgets.filestree
+   :members:
+   :undoc-members:
+   :show-inheritance:
