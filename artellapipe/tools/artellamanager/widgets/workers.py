@@ -31,7 +31,61 @@ class GetArtellaDirsWorker(QRunnable, object):
 
     def run(self):
         folders_found = list()
-        status = artellalib.get_status(self._path)
+
+        if not self._project:
+            self.signals.dirsUpdated.emit(folders_found)
+            return
+
+        folders_found = self._run_enterprise() if self._project.is_enterprise() else self._run_indie()
+
+        return folders_found
+
+    def _run_enterprise(self):
+        """
+        Internal function that downloads available folders in given path for Artella Indie
+        :param status: dict
+        """
+
+        status = artellalib.artella.get_status(self._path, include_remote=True)
+
+        folders_found = list()
+        if not status:
+            return folders_found
+
+        for handle, status_data in status.items():
+            if 'local_info' not in status_data:
+                continue
+            local_info = status_data.get('local_info', dict())
+            remote_info = status_data.get('remote_info', dict())
+
+            signature = local_info.get('signature', '')
+            folder_path = local_info.get('path', '')
+            if not signature or not folder_path:
+                name = remote_info.get('name', '')
+                signature = remote_info.get('signature', '')
+                folder_path = os.path.join(self._path, name)
+
+            if (not signature or signature != 'folder') or not folder_path:
+                continue
+            if os.path.normpath(self._path) == os.path.normpath(folder_path):
+                continue
+
+            folders_found.append(folder_path)
+
+        self.signals.dirsUpdated.emit(folders_found)
+
+        return folders_found
+
+    def _run_indie(self):
+        """
+        Internal function that downloads available folders in given path for Artella Indie
+        :param status: artellaclasses
+        """
+
+        status = artellalib.artella.get_status(self._path)
+
+        folders_found = list()
+
         is_asset = False
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
             for ref_name, ref_data in status.references.items():
@@ -43,7 +97,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
             working_folder = self._project.get_working_folder()
             working_path = os.path.join(status.path, working_folder)
-            artella_data = artellalib.get_status(working_path)
+            artella_data = artellalib.artella.get_status(working_path)
             if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
                 folders_found.append(working_path)
             is_asset = True
@@ -61,6 +115,8 @@ class GetArtellaDirsWorker(QRunnable, object):
                         published_folders_found.append(version_path)
             self.signals.publishedDirsUpdated.emit(published_folders_found)
 
+        return folders_found
+
 
 class GetArtellaFolderStatusWorkerSignals(QObject, object):
     statusRetrieved = Signal(object, str)
@@ -76,7 +132,7 @@ class GetArtellaFolderStatusWorker(QRunnable, object):
         if not self._path:
             return
 
-        status = artellalib.get_status(self._path)
+        status = artellalib.artella.get_status(self._path)
         self.signals.statusRetrieved.emit(status, self._path)
 
 
@@ -112,7 +168,7 @@ class GetArtellaFilesWorker(QRunnable, object):
             if self._abort:
                 self.signals.progressAbort.emit()
                 return
-            status = artellalib.get_status(path)
+            status = artellalib.artella.get_status(path)
             self.signals.progressTick.emit(i, path, status)
 
         self.signals.progressDone.emit()
@@ -129,7 +185,7 @@ class ArtellaCheckWorker(QRunnable, object):
         self.signals = ArtellaCheckWorkerSignals()
 
     def run(self):
-        metadata = artellalib.get_metadata()
+        metadata = artellalib.artella.get_metadata()
         if metadata is not None:
             self.signals.artellaAvailable.emit(True)
         else:

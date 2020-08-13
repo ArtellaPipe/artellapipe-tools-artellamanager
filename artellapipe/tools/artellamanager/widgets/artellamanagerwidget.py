@@ -49,7 +49,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._artella_timer.setInterval(6000)
         self._artella_timer.timeout.connect(self._on_update_metadata)
 
-        self.METADATA = artellalib.get_metadata()
+        self.METADATA = artellalib.artella.get_metadata()
         self._on_artella_checked(bool(self.METADATA))
 
     def get_main_layout(self):
@@ -363,7 +363,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                 text='Impossible to retrieve data from Artella. Maybe Artella is down.',
                 duration=5,
                 parent=self)
-            self.METADATA = artellalib.get_metadata()
+            self.METADATA = artellalib.artella.get_metadata()
             if not self.METADATA:
                 self._artella_not_available()
             return

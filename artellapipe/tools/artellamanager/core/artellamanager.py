@@ -12,22 +12,19 @@ __license__ = "MIT"
 __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
-import artellapipe
+from artellapipe.core import tool
 
 # Defines ID of the tool
 TOOL_ID = 'artellapipe-tools-artellamanager'
 
-# We skip the reloading of this module when launching the tool
-no_reload = True
 
-
-class ArtellapipeManagerTool(artellapipe.Tool, object):
+class ArtellapipeManagerTool(tool.ArtellaTool, object):
     def __init__(self, *args, **kwargs):
         super(ArtellapipeManagerTool, self).__init__(*args, **kwargs)
 
     @classmethod
     def config_dict(cls, file_name=None):
-        base_tool_config = artellapipe.Tool.config_dict(file_name=file_name)
+        base_tool_config = tool.ArtellaTool.config_dict(file_name=file_name)
         tool_config = {
             'name': 'Artella Manager',
             'id': 'artellapipe-tools-artellamanager',
@@ -52,7 +49,7 @@ class ArtellapipeManagerTool(artellapipe.Tool, object):
         return base_tool_config
 
 
-class ArtellapipeManagerToolset(artellapipe.Toolset, object):
+class ArtellapipeManagerToolset(tool.ArtellaToolset, object):
     ID = TOOL_ID
 
     def __init__(self, *args, **kwargs):
