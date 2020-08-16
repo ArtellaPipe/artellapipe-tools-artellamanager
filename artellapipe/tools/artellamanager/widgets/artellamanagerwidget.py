@@ -13,6 +13,7 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
+import time
 import webbrowser
 
 from Qt.QtCore import *
@@ -49,7 +50,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._artella_timer.setInterval(6000)
         self._artella_timer.timeout.connect(self._on_update_metadata)
 
-        self.METADATA = artellalib.artella.get_metadata()
+        self.METADATA = artellalib.get_metadata()
         self._on_artella_checked(bool(self.METADATA))
 
     def get_main_layout(self):
@@ -213,6 +214,10 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                     if none_server_version is not None:
                         self._lock_btn.setEnabled(True)
                     self._unlock_btn.setEnabled(False)
+
+                    # In Artella Enterprise, we do not need to lock a file first to upload a new version
+                    if self._project.is_enterprise():
+                        self._upload_btn.setEnabled(True)
                 else:
                     self._lock_btn.setEnabled(False)
                     if locked_by_user:
@@ -333,7 +338,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                 item_path = model.filePath(selected_indexes[0])
                 self._path_line.setText(item_path)
 
-                folder_status_worker = workers.GetArtellaFolderStatusWorker(item_path)
+                folder_status_worker = workers.GetArtellaFolderStatusWorker(item_path, include_remote=True)
                 folder_status_worker.signals.statusRetrieved.connect(self._on_get_folder_status)
                 self._thread_pool.start(folder_status_worker)
 
@@ -363,26 +368,50 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                 text='Impossible to retrieve data from Artella. Maybe Artella is down.',
                 duration=5,
                 parent=self)
-            self.METADATA = artellalib.artella.get_metadata()
+            self.METADATA = artellalib.get_metadata()
             if not self.METADATA:
                 self._artella_not_available()
             return
 
         all_files = list()
-        if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
-            for ref_name, ref_data in status.references.items():
-                dir_path = ref_data.path
-                if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
-                        dir_path) or not os.path.splitext(dir_path)[-1]:
-                    continue
-                all_files.append(dir_path)
-        else:
-            all_files.append(path)
+        if hasattr(artellapipe, 'project') and artellapipe.project:
+            if artellapipe.project.is_enterprise():
+                for handle, data in status.items():
+                    local_info = data.get('local_info', dict())
+                    remote_info = data.get('remote_info', dict())
+                    if local_info:
+                        signature = local_info.get('signature', None)
+                        is_folder = local_info.get('is_folder', False)
+                        if is_folder or signature == 'folder':
+                            continue
+                        dir_path = local_info.get('path', None)
+                        if dir_path and os.path.normpath(dir_path) != os.path.dirname(path):
+                            all_files.append(os.path.normpath(dir_path))
+                    else:
+                        signature = remote_info.get('signature', '')
+                        name = remote_info.get('name', '')
+                        if not signature or signature == 'folder' or not name:
+                            continue
+                        if os.path.normpath(os.path.join(
+                                os.path.dirname(path), name)) == os.path.normpath(path):
+                            continue
+                        dir_path = os.path.join(path, name)
+                        all_files.append(os.path.normpath(dir_path))
+            else:
+                if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
+                    for ref_name, ref_data in status.references.items():
+                        dir_path = ref_data.path
+                        if ref_data.deleted or ref_data.maximum_version_deleted or os.path.isdir(
+                                dir_path) or not os.path.splitext(dir_path)[-1]:
+                            continue
+                        all_files.append(dir_path)
+                else:
+                    all_files.append(path)
 
         if not all_files:
             self._folders_view.setEnabled(True)
 
-        artella_files_worker = workers.GetArtellaFilesWorker(all_files)
+        artella_files_worker = workers.GetArtellaFilesWorker(all_files, include_remote=True)
         artella_files_worker.signals.progressStarted.connect(self._on_start_find_files)
         artella_files_worker.signals.progressTick.connect(self._on_update_find_files)
         artella_files_worker.signals.progressAbort.connect(self._on_abort_find_files)
@@ -428,7 +457,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                         continue
                 if folder_files_dict:
                     for folder_file_name, folder_file_path in folder_files_dict.items():
-                        list_item = filestree.ArtellaFileItem(path=folder_file_path)
+                        list_item = filestree.ArtellaFileItem(project=self._project, path=folder_file_path)
                         if list_item.is_directory or list_item.is_deleted:
                             continue
                         self._setup_file_item_signals(list_item)
@@ -446,7 +475,8 @@ class ArtellaManagerWidget(base.BaseWidget, object):
     def _on_update_find_files(self, index, path, status):
         self._loading_widget.set_value(index, path)
         if status:
-            list_item = filestree.ArtellaFileItem(path=path, status=status, metadata=self.METADATA)
+            list_item = filestree.ArtellaFileItem(
+                project=self._project, path=path, status=status, metadata=self.METADATA)
             if list_item.is_directory or list_item.is_deleted:
                 return
             self._setup_file_item_signals(list_item)
@@ -490,6 +520,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
                 'artellapipe-tools-dependenciesmanager', do_reload=True, debug=False, file_path=item_path)
 
     def _on_lock_file(self, item, refresh_toolbar=True):
+        if not self._project:
+            return
+
         item_path = item.path
         msg = message.PopupMessage.loading('Locking File', parent=self, closable=False)
         error_msg = 'Error while locking file'
@@ -505,6 +538,11 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             message.PopupMessage.error(error_msg, parent=self)
         else:
             message.PopupMessage.success('File locked succesfully!', parent=self)
+
+        # We wait some seconds before checking lock status again, otherwise Artella server won't return a valid value
+        if self._project.is_enterprise():
+            time.sleep(2.0)
+
         item.refresh()
 
         if refresh_toolbar:
@@ -535,6 +573,10 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         message.PopupMessage.success(text='File Artella path copied to clipboard!.', parent=self)
 
     def _on_unlock_file(self, item, refresh_toolbar=True):
+
+        if not self._project:
+            return
+
         item_path = item.path
         msg = message.PopupMessage.loading('Unlocking File', parent=self, closable=False)
         error_msg = 'Error while unlocking file'
@@ -551,27 +593,47 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         else:
             message.PopupMessage.success('File unlocked successfully!', parent=self)
 
+        # We wait some seconds before checking lock status again, otherwise Artella server won't return a valid value
+        if self._project.is_enterprise():
+            time.sleep(2.0)
+
         item.refresh()
 
         if refresh_toolbar:
             self._update_toolbar()
 
     def _on_sync_file(self, item):
+
+        if not self._project:
+            return
+
         item_path = item.path
         artellapipe.FilesMgr().sync_files([item_path])
 
         message.PopupMessage.success('File synced successfully!', parent=self)
+
+        # We wait some seconds before checking lock status again, otherwise Artella server won't return a valid value
+        if self._project.is_enterprise():
+            time.sleep(2.0)
 
         item.refresh()
 
         self._update_toolbar()
 
     def _on_upload_file(self, item, refresh_toolbar=True):
+
+        if not self._project:
+            return
+
         item_path = item.path
         valid_version = artellapipe.FilesMgr().upload_working_version(item_path)
 
         if valid_version:
             message.PopupMessage.success('File version uploaded successfully!', parent=self)
+
+        # We wait some seconds before checking lock status again, otherwise Artella server won't return a valid value
+        if self._project.is_enterprise():
+            time.sleep(2.0)
 
         item.refresh()
 
@@ -579,6 +641,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             self._update_toolbar()
 
     def _on_lock_selected_files(self):
+        if not self._project:
+            return False
+
         if not self._selected_items:
             return False
 
@@ -588,6 +653,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._update_toolbar()
 
     def _on_unlock_selected_files(self):
+        if not self._project:
+            return
+
         if not self._selected_items:
             return False
 
@@ -597,6 +665,9 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         self._update_toolbar()
 
     def _on_sync_selected_files(self):
+        if not self._project:
+            return
+
         if not self._selected_items:
             return False
 
@@ -608,12 +679,19 @@ class ArtellaManagerWidget(base.BaseWidget, object):
         else:
             message.PopupMessage.success('File synced successfully!', parent=self)
 
+        # We wait some seconds before checking lock status again, otherwise Artella server won't return a valid value
+        if self._project.is_enterprise():
+            time.sleep(2.0)
+
         for item in self._selected_items:
             item.refresh()
 
         self._update_toolbar()
 
     def _on_upload_selected_files(self):
+        if not self._project:
+            return
+
         if not self._selected_items:
             return False
 

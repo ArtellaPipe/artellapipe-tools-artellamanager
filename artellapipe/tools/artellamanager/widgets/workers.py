@@ -46,7 +46,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         :param status: dict
         """
 
-        status = artellalib.artella.get_status(self._path, include_remote=True)
+        status = artellalib.get_status(self._path, include_remote=True)
 
         folders_found = list()
         if not status:
@@ -82,7 +82,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         :param status: artellaclasses
         """
 
-        status = artellalib.artella.get_status(self._path)
+        status = artellalib.get_status(self._path)
 
         folders_found = list()
 
@@ -97,7 +97,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         elif isinstance(status, artellaclasses.ArtellaAssetMetaData):
             working_folder = self._project.get_working_folder()
             working_path = os.path.join(status.path, working_folder)
-            artella_data = artellalib.artella.get_status(working_path)
+            artella_data = artellalib.get_status(working_path)
             if isinstance(artella_data, artellaclasses.ArtellaDirectoryMetaData):
                 folders_found.append(working_path)
             is_asset = True
@@ -123,8 +123,9 @@ class GetArtellaFolderStatusWorkerSignals(QObject, object):
 
 
 class GetArtellaFolderStatusWorker(QRunnable, object):
-    def __init__(self, path):
+    def __init__(self, path, include_remote=False):
         self._path = path
+        self._include_remote = include_remote
         self.signals = GetArtellaFolderStatusWorkerSignals()
         super(GetArtellaFolderStatusWorker, self).__init__()
 
@@ -132,7 +133,7 @@ class GetArtellaFolderStatusWorker(QRunnable, object):
         if not self._path:
             return
 
-        status = artellalib.artella.get_status(self._path)
+        status = artellalib.get_status(self._path, include_remote=self._include_remote)
         self.signals.statusRetrieved.emit(status, self._path)
 
 
@@ -144,9 +145,10 @@ class GetArtellaFilesWorkerSignals(QObject, object):
 
 
 class GetArtellaFilesWorker(QRunnable, object):
-    def __init__(self, paths):
+    def __init__(self, paths, include_remote=False):
         self._paths = python.force_list(paths)
         self._abort = False
+        self._include_remote = include_remote
         self.signals = GetArtellaFilesWorkerSignals()
         super(GetArtellaFilesWorker, self).__init__()
 
@@ -168,7 +170,7 @@ class GetArtellaFilesWorker(QRunnable, object):
             if self._abort:
                 self.signals.progressAbort.emit()
                 return
-            status = artellalib.artella.get_status(path)
+            status = artellalib.get_status(path, include_remote=self._include_remote)
             self.signals.progressTick.emit(i, path, status)
 
         self.signals.progressDone.emit()
@@ -185,7 +187,7 @@ class ArtellaCheckWorker(QRunnable, object):
         self.signals = ArtellaCheckWorkerSignals()
 
     def run(self):
-        metadata = artellalib.artella.get_metadata()
+        metadata = artellalib.get_metadata()
         if metadata is not None:
             self.signals.artellaAvailable.emit(True)
         else:

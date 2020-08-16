@@ -22,6 +22,7 @@ from Qt.QtGui import *
 
 import tpDcc as tp
 from tpDcc.libs.python import fileio, folder
+from tpDcc.libs.qt.core import qtutils
 from tpDcc.libs.qt.widgets import message
 
 import artellapipe
@@ -80,6 +81,8 @@ class ArtellaManagerFolderView(QTreeView, object):
         eye_icon = tp.ResourcesMgr().icon('eye')
         copy_icon = tp.ResourcesMgr().icon('copy')
         sync_icon = tp.ResourcesMgr().icon('sync')
+        folder_icon = tp.ResourcesMgr().icon('folder')
+        cancel_icon = tp.ResourcesMgr().icon('cancel')
 
         refresh_action = QAction(refresh_icon, 'Refresh', menu)
         artella_action = QAction(artella_icon, 'Open in Artella', menu)
@@ -87,6 +90,8 @@ class ArtellaManagerFolderView(QTreeView, object):
         copy_path_action = QAction(copy_icon, 'Copy Folder Path', menu)
         copy_artella_path_action = QAction(copy_icon, 'Copy Artella Folder Path', menu)
         sync_action = QAction(sync_icon, 'Sync Recursive', menu)
+        new_folder_action = QAction(folder_icon, 'Create New Folder', menu)
+        delete_folder_action = QAction(cancel_icon, 'Delete Folder', menu)
 
         menu.addAction(refresh_action)
         menu.addSeparator()
@@ -97,6 +102,9 @@ class ArtellaManagerFolderView(QTreeView, object):
         menu.addAction(copy_artella_path_action)
         menu.addSeparator()
         menu.addAction(sync_action)
+        menu.addSeparator()
+        menu.addAction(new_folder_action)
+        menu.addAction(delete_folder_action)
 
         refresh_action.triggered.connect(partial(self._on_refresh_item, item_path))
         view_locally_action.triggered.connect(partial(self._on_open_item_folder, item_path))
@@ -104,6 +112,8 @@ class ArtellaManagerFolderView(QTreeView, object):
         copy_path_action.triggered.connect(partial(self._on_copy_path, item_path))
         copy_artella_path_action.triggered.connect(partial(self._on_copy_artella_path, item_path))
         sync_action.triggered.connect(partial(self._on_sync_folder, item_path))
+        new_folder_action.triggered.connect(partial(self._on_create_new_folder, item_path))
+        delete_folder_action.triggered.connect(partial(self._on_delete_folder, item_path))
 
         return menu
 
@@ -207,6 +217,34 @@ class ArtellaManagerFolderView(QTreeView, object):
         message.PopupMessage.success('Folder recursively synced successfully!', parent=self)
 
         self._on_refresh_item(item_path)
+
+    def _on_create_new_folder(self, item_path):
+        if not os.path.exists(item_path):
+            return
+
+        new_folder_name = qtutils.get_string_input('Type new folder name', 'New Folder', 'New Folder')
+        if not new_folder_name:
+            return
+
+        new_path = os.path.join(item_path, new_folder_name)
+        if os.path.isdir(new_path):
+            message.PopupMessage.warning('Folder {} already exists!'.format(new_path), parent=self)
+            return
+
+        folder.create_folder(new_path)
+
+    def _on_delete_folder(self, item_path):
+        if not os.path.exists(item_path):
+            return
+
+        res = qtutils.get_permission(
+            'Are you sure you want to remove this file from you local computer?\n'
+            'Take into account that the folder will not be removed from Artella Drive Server',
+            'Delete Folder', parent=self)
+        if not res:
+            return
+
+        folder.delete_folder(item_path)
 
     def _on_context_menu(self, pos):
         """

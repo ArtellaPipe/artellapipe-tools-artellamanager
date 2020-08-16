@@ -42,7 +42,7 @@ class ArtellaFileSignals(QObject, object):
 
 
 class ArtellaFileItem(QTreeWidgetItem, object):
-    def __init__(self, path, status=None, metadata=None):
+    def __init__(self, project, path, status=None, metadata=None):
         super(ArtellaFileItem, self).__init__()
         self.SIGNALS = ArtellaFileSignals()
         self._metadata = metadata
@@ -53,6 +53,7 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         self._locked_by_user = False
         self._local_version = None
         self._server_version = None
+        self._project = project
         self._path = path
         self._menu = None
 
@@ -111,38 +112,75 @@ class ArtellaFileItem(QTreeWidgetItem, object):
         return self._server_version
 
     def refresh(self, status=None):
+        if not self._project:
+            self.clear()
+            return
+
+        if not self._metadata:
+            self._metadata = artellalib.get_metadata()
+
         if not status and self._path:
-            status = artellalib.get_status(self._path)
+            status = artellalib.get_status(self._path, include_remote=True)
         if not status:
             self.clear()
             return
 
-        if not hasattr(status, 'references'):
-            return
-        item_ref = status.references[status.references.keys()[0]]
-        self._is_deleted = item_ref.deleted
-        self._is_directory = item_ref.is_directory
-        if self._is_deleted or self._is_directory:
-            return
-        self._local_version = item_ref.view_version
-        if self._local_version and not os.path.isfile(self._path):
-            self._local_version = None
-        self._server_version = item_ref.maximum_version
-        self._is_locked = item_ref.locked
-        self._locked_by_user = False
-        if self._is_locked:
-            locked_view = item_ref.locked_view
-            self._locked_by_user = locked_view == self._metadata.storage_id
-        self._locked_by = getpass.getuser() if self._locked_by_user else 'Other User' if self._is_locked else ''
-        file_name = os.path.basename(self._path)
-        self.setText(0, file_name)
-        self.setIcon(0, tp.ResourcesMgr().icon_from_filename(self._path))
-        self.setText(1, str(self._is_locked))
-        self.setText(2, self._locked_by)
-        self.setText(3, str(fileio.get_file_size(self._path)) if self._local_version is not None else '')
-        self.setText(4, str(self._local_version) if self._local_version is not None else '')
-        self.setText(5, str(self._server_version))
-        self.setData(0, Qt.UserRole, self._path)
+        if self._project.is_enterprise():
+            for handle, data in status.items():
+                if not handle or handle.startswith('filev__'):
+                    continue
+                local_info = data.get('local_info', dict())
+                remote_info = data.get('remote_info', dict())
+                remote_data = remote_info.get('raw', dict())
+
+                self._is_deleted = remote_data.get('invalid', True)
+                self._is_directory = remote_info.get('signature', None) == 'folder'
+                if self._is_deleted or self._is_directory:
+                    continue
+                self._local_version = local_info.get('remote_version', None)
+                self._server_version = remote_data.get('highest_version', 0)
+                self._is_locked = bool(remote_data.get('locked_by', ''))
+                self._locked_by_user = False
+                if self._is_locked:
+                    machine_id = remote_info.get('machine_id', '')
+                    self._locked_by_user = machine_id and machine_id == self._metadata.storage_id
+                self._locked_by = getpass.getuser() if self._locked_by_user else 'Other User' if self._is_locked else ''
+                file_name = os.path.basename(self._path)
+                self.setText(0, file_name)
+                self.setIcon(0, tp.ResourcesMgr().icon_from_filename(self._path))
+                self.setText(1, str(self._is_locked))
+                self.setText(2, self._locked_by)
+                self.setText(3, str(fileio.get_file_size(self._path)) if self._local_version is not None else '')
+                self.setText(4, str(self._local_version) if self._local_version is not None else '')
+                self.setText(5, str(self._server_version))
+                self.setData(0, Qt.UserRole, self._path)
+        else:
+            if not hasattr(status, 'references'):
+                return
+            item_ref = status.references[status.references.keys()[0]]
+            self._is_deleted = item_ref.deleted
+            self._is_directory = item_ref.is_directory
+            if self._is_deleted or self._is_directory:
+                return
+            self._local_version = item_ref.view_version
+            if self._local_version and not os.path.isfile(self._path):
+                self._local_version = None
+            self._server_version = item_ref.maximum_version
+            self._is_locked = item_ref.locked
+            self._locked_by_user = False
+            if self._is_locked:
+                locked_view = item_ref.locked_view
+                self._locked_by_user = locked_view == self._metadata.storage_id
+            self._locked_by = getpass.getuser() if self._locked_by_user else 'Other User' if self._is_locked else ''
+            file_name = os.path.basename(self._path)
+            self.setText(0, file_name)
+            self.setIcon(0, tp.ResourcesMgr().icon_from_filename(self._path))
+            self.setText(1, str(self._is_locked))
+            self.setText(2, self._locked_by)
+            self.setText(3, str(fileio.get_file_size(self._path)) if self._local_version is not None else '')
+            self.setText(4, str(self._local_version) if self._local_version is not None else '')
+            self.setText(5, str(self._server_version))
+            self.setData(0, Qt.UserRole, self._path)
 
     def clear(self):
         file_name = os.path.basename(self._path) if self._path else ''
