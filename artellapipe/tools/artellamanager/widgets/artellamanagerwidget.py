@@ -14,6 +14,7 @@ __email__ = "tpovedatd@gmail.com"
 
 import os
 import time
+import logging
 import webbrowser
 
 from Qt.QtCore import *
@@ -28,6 +29,8 @@ from tpDcc.libs.qt.widgets import stack, dividers, buttons, message, lineedit, s
 import artellapipe
 from artellapipe.libs.artella.core import artellalib, artellaclasses
 from artellapipe.tools.artellamanager.widgets import workers, folderstree, filestree, loading
+
+LOGGER = tp.LogsMgr().get_logger('artellapipe-tools-artellamanager')
 
 
 class ArtellaManagerWidget(base.BaseWidget, object):
@@ -584,6 +587,7 @@ class ArtellaManagerWidget(base.BaseWidget, object):
             valid_unlock = artellapipe.FilesMgr().unlock_file(item_path)
         except Exception as exc:
             error_msg = '{}: {}'.format(error_msg, exc)
+            LOGGER.error(error_msg)
             valid_unlock = False
         finally:
             msg.close()
