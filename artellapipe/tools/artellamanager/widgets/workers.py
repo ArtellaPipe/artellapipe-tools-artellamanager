@@ -17,7 +17,7 @@ from artellapipe.libs.artella.core import artellalib, artellaclasses
 
 
 class GetArtellaDirsWorkerSignals(QObject, object):
-    dirsUpdated = Signal(list)
+    dirsUpdated = Signal(list, list)
     publishedDirsUpdated = Signal(list)
 
 
@@ -31,14 +31,15 @@ class GetArtellaDirsWorker(QRunnable, object):
 
     def run(self):
         folders_found = list()
+        folders_delete = list()
 
         if not self._project:
-            self.signals.dirsUpdated.emit(folders_found)
+            self.signals.dirsUpdated.emit(folders_found, folders_delete)
             return
 
-        folders_found = self._run_enterprise() if self._project.is_enterprise() else self._run_indie()
+        folders_found, folders_delete = self._run_enterprise() if self._project.is_enterprise() else self._run_indie()
 
-        return folders_found
+        return folders_found, folders_delete
 
     def _run_enterprise(self):
         """
@@ -49,6 +50,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         status = artellalib.get_status(self._path, include_remote=True)
 
         folders_found = list()
+        folders_to_delete = list()
         if not status:
             return folders_found
 
@@ -58,8 +60,17 @@ class GetArtellaDirsWorker(QRunnable, object):
             local_info = status_data.get('local_info', dict())
             remote_info = status_data.get('remote_info', dict())
 
+            remote_raw_info = remote_info.get('raw', dict())
+            is_deleted = remote_raw_info.get('deleted', False)
+            is_invalid = remote_raw_info.get('invalid', False)
             signature = local_info.get('signature', '')
             folder_path = local_info.get('path', '')
+
+            if is_deleted or is_invalid:
+                if folder_path and os.path.isdir(folder_path):
+                    folders_to_delete.append(folder_path)
+                continue
+
             if not signature or not folder_path:
                 name = remote_info.get('name', '')
                 signature = remote_info.get('signature', '')
@@ -72,9 +83,9 @@ class GetArtellaDirsWorker(QRunnable, object):
 
             folders_found.append(folder_path)
 
-        self.signals.dirsUpdated.emit(folders_found)
+        self.signals.dirsUpdated.emit(folders_found, folders_to_delete)
 
-        return folders_found
+        return folders_found, folders_to_delete
 
     def _run_indie(self):
         """
@@ -85,6 +96,7 @@ class GetArtellaDirsWorker(QRunnable, object):
         status = artellalib.get_status(self._path)
 
         folders_found = list()
+        folders_to_delete = list()
 
         is_asset = False
         if isinstance(status, artellaclasses.ArtellaDirectoryMetaData):
@@ -102,7 +114,7 @@ class GetArtellaDirsWorker(QRunnable, object):
                 folders_found.append(working_path)
             is_asset = True
 
-        self.signals.dirsUpdated.emit(folders_found)
+        self.signals.dirsUpdated.emit(folders_found, folders_to_delete)
 
         if is_asset:
             published_folders_found = list()
@@ -115,7 +127,7 @@ class GetArtellaDirsWorker(QRunnable, object):
                         published_folders_found.append(version_path)
             self.signals.publishedDirsUpdated.emit(published_folders_found)
 
-        return folders_found
+        return folders_found, folders_to_delete
 
 
 class GetArtellaFolderStatusWorkerSignals(QObject, object):
