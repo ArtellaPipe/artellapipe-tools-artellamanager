@@ -13,6 +13,7 @@ __maintainer__ = "Tomas Poveda"
 __email__ = "tpovedatd@gmail.com"
 
 import os
+import logging
 import webbrowser
 from functools import partial
 
@@ -28,6 +29,8 @@ from tpDcc.libs.qt.widgets import message
 import artellapipe
 from artellapipe.libs.artella.core import artellalib, artellaclasses
 from artellapipe.tools.artellamanager.widgets import workers
+
+LOGGER = logging.getLogger('artellapipe-tools-artellamanager')
 
 
 class ArtellaManagerFolderView(QTreeView, object):
@@ -137,14 +140,34 @@ class ArtellaManagerFolderView(QTreeView, object):
         dirs_worker.signals.dirsUpdated.connect(self._on_dirs_added)
         dirs_worker.signals.publishedDirsUpdated.connect(self._on_dirs_added)
 
-        self._thread_pool.start(dirs_worker)
+        dirs_worker.run()
 
-    def _on_dirs_added(self, list_of_folders):
+        # self._thread_pool.start(dirs_worker)
+
+    def _on_dirs_added(self, list_of_folders, folders_to_delete=None):
         for folder_path in list_of_folders:
             if folder_path and not os.path.isdir(folder_path):
                 folder.create_folder(folder_path)
 
-    def _on_published_dirs_added(self, list_of_folders):
+        if folders_to_delete:
+            valid_folders = [
+                folder_path for folder_path in folders_to_delete if folder_path and os.path.isdir(folder_path)]
+            if valid_folders:
+                res = qtutils.show_question(
+                    self,
+                    'Remove folders',
+                    'Local folder that does not exist in Artella server anymore have been found.\n\n'
+                    'Do you want to remove them from your computer?\n\n{}'.format('\n'.join(valid_folders)))
+                if res != QMessageBox.Yes:
+                    return
+                for valid_folder in valid_folders:
+                    try:
+                        folder.delete_folder(valid_folder)
+                    except Exception as exc:
+                        LOGGER.warning(
+                            'Was not possible to remove folder: {} | {}. Do it manually.'.format(valid_folder, exc))
+
+    def _on_published_dirs_added(self, list_of_folders, *args, **kwargs):
         for folder_path in list_of_folders:
             if folder_path and not os.path.isdir(folder_path):
                 folder.create_folder(folder_path)
